@@ -1,7 +1,4 @@
-# Real-Time Patient Vital Monitoring & Anomaly Detection System
-
-## Project Title
-**Real-Time Patient Vital Monitoring & Anomaly Detection**
+# MyMedQL: Real-Time Patient Vital Monitoring & Anomaly Detection System
 
 ---
 
@@ -61,23 +58,50 @@ There are commercial and open-source patient-monitoring products. Our project di
 - **Alert** — `alert_id`, `patient_id`, `vitals_id`, `alert_type`, `severity`, `message`, `created_at`, `resolved_at`, `created_by`, `acknowledged_by`, `acknowledged_at`.
 
 ---
+## ⚙️ Additional System Features
 
-## 🔧 Tech stack
-- **Database:** MySQL 8.x (InnoDB).  
-- **Backend / API:** Node.js + Express (WebSocket via Socket.IO).  
-  - Alternatives: Python (FastAPI) — acceptable if team prefers Python; final choice will be stated in repo.  
-- **Frontend:** React + TailwindCSS; charts via Recharts or Chart.js.  
-- **Dev / Ops:** Docker & Docker Compose for local deployment.  
-- **Security & Utilities:** bcrypt (passwords), JWT or secure server sessions, `.env` for demo secrets.  
-- **Optional (scaling):** Redis for pub/sub if we separate real-time messaging from DB write load; Mosquitto if demonstrating MQTT.
+### 🔔 Triggers
+- Automatically create an **Alert** when vitals exceed predefined thresholds.
+- Automatically update **Admission.status** to “discharged” when `discharge_time` is set.
+
+### 🔐 Security
+- Passwords hashed using bcrypt.
+- Role-based access enforced in backend logic (e.g., nurse vs doctor vs admin).
+- Sensitive fields such as medical history encrypted before storage.
+
+### ⚡ Real-Time Readiness
+- Vitals table designed for high insert frequency using indexing and partitioning.
+- Notifications table supports integration with WebSocket/push services for immediate alert delivery.
 
 ---
 
+## 🔧 Tech stack
+**Backend / API**  
+- Node.js / Express *or* Python (Flask / FastAPI)  
+- WebSocket/MQTT for real-time updates  
+
+**Database**  
+- MySQL / PostgreSQL  
+- Optional: TimescaleDB for time-series performance  
+
+**Frontend**  
+- React + TailwindCSS  
+- Recharts / Chart.js for visualization  
+
+**Security**  
+- bcrypt password hashing  
+- Role-based access control  
+- Parameterized SQL queries
+  
+---
+
 ## 👥 Team members & roles
-- **Cao Pham Minh Dang** — Backend Developer: API implementation, DB triggers, stored procedures, simulator integration.  
-- **Ngo Dinh Khanh** — Frontend Developer: Dashboard UI, real-time charts, alert panel.  
-- **Pham Dinh Hieu** — Database Engineer: ERD, DDL, normalization, indexing, partitioning strategy, performance tuning.  
-- **Nguyen Anh Duc** — DevOps / QA: Docker Compose, deployment scripts, automated tests, documentation and final presentation.
+| Name | Role | Responsibilities |
+|------|------|------------------|
+| Cao Pham Minh Dang | Backend Developer  | API, DB triggers, stored procedures       |
+| Ngo Dinh Khanh     | Frontend Developer | Dashboard UI, charts, real-time visualization |
+| Pham Dinh Hieu     | Database Engineer  | ERD, normalization, indexing, partitioning |
+| Nguyen Anh Duc     | DevOps / QA        | Deployment, testing, documentation |
 
 ---
 

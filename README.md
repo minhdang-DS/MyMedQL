@@ -29,7 +29,7 @@ Real-time patient monitoring systems already exist in hospitals (e.g., Philips I
 - A **live web dashboard** built from scratch with real-time data streams
 - An academic-friendly architecture that prioritizes transparency and reproducibility
 
-Your system becomes original by focusing on:
+Our system becomes original by focusing on:
 
 1. **Database-centric design**  
    Instead of treating the DB as a passive storage layer, your system uses it actively through triggers, stored procedures, partitioning, and views. This demonstrates mastery of database engineering—something commercial systems rarely reveal.
@@ -54,8 +54,6 @@ Your system becomes original by focusing on:
 - **Views** optimize repeated analytical patterns such as daily averages or vitals summaries.  
 - **Indexes** on `(patient_id, timestamp)` support fast retrieval of high-frequency data.  
 - **Partitioning** on timestamp improves performance for large datasets.
-
-These are appropriate for a database-focused project and map perfectly to grading criteria.
 
 **Potential Enhancements:**
 

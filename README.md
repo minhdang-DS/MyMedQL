@@ -1,225 +1,114 @@
 # Real-Time Patient Vital Monitoring & Anomaly Detection System
 
-A lightweight ICU-style monitoring platform that collects patient vital signs in real time, stores them in a structured database, and displays them on a live web dashboard. The system generates alerts when abnormal values are detected and provides historical trends to support clinical decision-making.
+## Project Title
+**Real-Time Patient Vital Monitoring & Anomaly Detection**
 
 ---
 
-## 📄 Description
+## 📄 Brief description
+We build a lightweight ICU-style monitoring platform that ingests patient vital signs in real time, stores them in a structured relational database, and presents them on a live web dashboard. The system detects abnormal values, generates time-stamped alerts, and provides historical trends to support clinical decision-making. Our primary technical focus is demonstrating robust database engineering with MySQL as the canonical data store.
 
-Modern hospital wards and ICUs depend on continuous monitoring of patient vitals such as heart rate, blood pressure, SpO₂, temperature, and respiration. Manual monitoring leads to inconsistent sampling, human error, and delayed reaction to critical events.
-
-This project implements a real-time monitoring system that:
-
-- Receives live vital-sign data from simulated or actual sensors  
-- Stores high-frequency readings efficiently in a database  
-- Detects anomalies using thresholds and database triggers  
-- Presents an interactive web dashboard with trends and alerts  
-- Supports secure role-based access for hospital staff  
-
-The system demonstrates practical integration of relational databases, real-time pipelines, and modern web interfaces.
+**Problem we solve:** manual or infrequent checks can delay detection of patient deterioration. We provide a reproducible, database-driven pipeline that enables continuous monitoring, auditable alerting, and efficient querying of high-frequency vitals for clinicians and researchers.
 
 ---
 
-## 🌟 Project Originality
+## Project originality (similar systems & our novelties)
+There are commercial and open-source patient-monitoring products. Our project differs in three key ways:
 
-Real-time patient monitoring systems already exist in hospitals (e.g., Philips IntelliVue, Mindray monitors), but these systems are proprietary, expensive, and closed-source. Some open-source medical dashboards exist, but very few integrate:
+1. **Database-first architecture.**  
+   We make the relational database the active component (partitioning, stored procedures, triggers, views, JSON columns and optimized indexing) rather than treating it as passive storage. This highlights database engineering practices rarely visible in commercial stacks.
 
-- A relational schema designed for **high-frequency time-series vitals**
-- **Database-driven anomaly detection** using triggers
-- A **live web dashboard** built from scratch with real-time data streams
-- An academic-friendly architecture that prioritizes transparency and reproducibility
+2. **Configurable, auditable alerting.**  
+   Thresholds can be global or patient-specific, versioned, and stored in the DB so every alert is reproducible and auditable. Device assignment history is tracked for realism.
 
-Our system becomes original by focusing on:
-
-1. **Database-centric design**  
-   Instead of treating the DB as a passive storage layer, your system uses it actively through triggers, stored procedures, partitioning, and views. This demonstrates mastery of database engineering—something commercial systems rarely reveal.
-
-2. **Educational transparency**  
-   All components are fully documented and open for inspection, making the platform valuable for teaching data modeling, real-time systems, and security.
-
-3. **Configurable thresholds & alert logic**  
-   Hospitals often use fixed vendor logic. Your system allows dynamic, DB-driven configuration.
-
-4. **Lightweight architecture**  
-   Instead of a monolithic medical device, it uses standard web technologies, making the system easy to deploy in labs or academic environments.
+3. **Reproducible demo scenarios.**  
+   We provide a sensor simulator and scripted scenarios (stable → deterioration → recovery) so graders can reproduce alert flows deterministically. This makes the project ideal for teaching and demonstration.
 
 ---
 
-## 🔍 Database & Tech Choices Evaluation
+## 🎯 Functional & Non-functional requirements
 
-### Database Features (MySQL / PostgreSQL)
+### Functional
+- CRUD for Patients, Staff, Devices, Thresholds.  
+- High-frequency ingestion of vitals (target: 1–5s per device in demo).  
+- Trigger-based alert creation on vitals insert.  
+- Stored procedures for common analytics (e.g., `get_last_n_readings`, `aggregate_daily_stats`).  
+- Views for frequent query patterns (hourly averages, patient summaries).  
+- Real-time dashboard: WebSocket-driven updates of vital trends and alerts.  
+- Role-based access control (roles: admin, doctor, nurse, viewer).  
+- Device assignment history and alert acknowledgement workflow.
 
-- **Stored Procedures** enable predefined analytical operations (e.g., last N readings).  
-- **Triggers** allow immediate, rule-driven alert creation without relying on backend timing loops.  
-- **Views** optimize repeated analytical patterns such as daily averages or vitals summaries.  
-- **Indexes** on `(patient_id, timestamp)` support fast retrieval of high-frequency data.  
-- **Partitioning** on timestamp improves performance for large datasets.
-
-**Potential Enhancements:**
-
-- PostgreSQL with **TimescaleDB** extension provides native time-series optimizations, but MySQL still satisfies all requirements and is simpler for course grading.
-- Using PostgreSQL would allow materialized views for faster analytics, though not mandatory.
-
-### Web Stack (Node.js / Flask)
-
-Both choices match the needs of:
-
-- Rapid CRUD development  
-- Real-time communication via WebSocket  
-- Integration with SQL databases  
-- Flexible authentication and middleware support  
-
-Flask is minimal and clean for course projects.  
-Node.js is fast for streaming data.  
-Either is acceptable and aligned with course expectations.
+### Non-functional
+- Primary DB: **MySQL 8.x** (InnoDB).  
+- Data model normalized to **3NF**.  
+- Indexing on `(patient_id, ts)` and appropriate composite indexes.  
+- Optional partitioning of `vitals` by time (monthly) for demo data.  
+- Secure password hashing (bcrypt).  
+- Application-layer encryption for sensitive fields (medical history) with keys held in environment for the demo.  
+- Parameterized queries to prevent SQL injection.  
+- Docker Compose for reproducible local demo.  
+- Performance target for the demo: handle 50 inserts/sec with sub-second reads for typical queries.
 
 ---
 
-## 🧭 Clarity of the Proposal
-
-The proposal is strong but a few points need clarification:
-
-1. **Threshold Entity Usage**  
-   The README includes a `Threshold` table, but its exact usage should be clearly defined (global thresholds? per-patient? per-device?).
-
-2. **Device-to-Patient Mapping Rules**  
-   The statement “Device assigned to patient” implies one-to-one mapping. Clarify:  
-   - Can a patient have multiple devices?  
-   - What happens when switching devices?
-
-3. **Anomaly Detection Logic**  
-   You have triggers for alerts, but should specify whether backend AI/logic can override DB triggers.
-
-4. **Real-Time Source**  
-   Clarify whether vitals come from:  
-   - a simulated script  
-   - a physical IoT device  
-   - or manually entered values
-
-These don't break the proposal but documenting them improves completeness.
+## 🧱 Planned core entities (brief outline)
+- **Patient** — `patient_id`, `first_name`, `last_name`, `dob`, `gender`, `contact_info` (JSON), `medical_history` (encrypted), timestamps.  
+- **Staff** — `staff_id`, `name`, `email`, `password_hash`, `role`, timestamps.  
+- **Device** — `device_id`, `device_type`, `serial_number`, `metadata` (JSON), timestamps.  
+- **DeviceAssignment** — `assignment_id`, `device_id`, `patient_id`, `assigned_from`, `assigned_to`, `assigned_by`.  
+- **Vitals** — `vitals_id`, `patient_id`, `device_id`, `ts`, `heart_rate`, `spo2`, `bp_systolic`, `bp_diastolic`, `temperature_c`, `respiration`, `metadata`, indexes on `(patient_id, ts)` and `(device_id, ts)`.  
+- **Threshold** — `threshold_id`, `name` (vital name), `min_value`, `max_value`, `unit`, `patient_id` (nullable), `effective_from`, `effective_to`, `created_by`.  
+- **Alert** — `alert_id`, `patient_id`, `vitals_id`, `alert_type`, `severity`, `message`, `created_at`, `resolved_at`, `created_by`, `acknowledged_by`, `acknowledged_at`.
 
 ---
 
-## 🧪 Feature Evaluation & Suggestions
-
-### Realistic & Sufficient Features
-
-The current feature set is practical for a semester project:
-
-- CRUD operations  
-- Real-time ingestion  
-- Trigger-based alerts  
-- Web dashboard  
-- Authentication  
-- Basic analytics  
-
-All feasible within 6 weeks.
-
-### Additional Practical Features to Consider
-
-These are easy to implement but significantly enhance the experience:
-
-1. **Patient Status Overview Page**  
-   A single screen showing all patients with color-coded statuses (stable / warning / critical).
-
-2. **Alert Acknowledgment System**  
-   Staff can mark an alert as "seen" or "resolved".  
-   Add columns: `acknowledged_by`, `acknowledged_time`.
-
-3. **Export Functions (CSV)**  
-   Simple endpoint to export vitals or alerts. No need for PDF.
-
-4. **API Rate Limiting or Input Validation**  
-   Prevent flooding the system with malformed or excessive data.
-
-5. **Automatic Device Offline Detection**  
-   If no data arrived for X seconds, mark device as offline.  
-   Store in DB: `device_status`.
-
-These features are straightforward but impress instructors.
+## 🔧 Tech stack
+- **Database:** MySQL 8.x (InnoDB).  
+- **Backend / API:** Node.js + Express (WebSocket via Socket.IO).  
+  - Alternatives: Python (FastAPI) — acceptable if team prefers Python; final choice will be stated in repo.  
+- **Frontend:** React + TailwindCSS; charts via Recharts or Chart.js.  
+- **Dev / Ops:** Docker & Docker Compose for local deployment.  
+- **Security & Utilities:** bcrypt (passwords), JWT or secure server sessions, `.env` for demo secrets.  
+- **Optional (scaling):** Redis for pub/sub if we separate real-time messaging from DB write load; Mosquitto if demonstrating MQTT.
 
 ---
 
-## 🎯 Requirements
-
-### Functional Requirements
-
-- CRUD operations for Patients, Staff, and Devices  
-- Ingest real-time vitals (1–5s intervals)  
-- Automatic alert generation when vitals exceed thresholds  
-- Trend visualization (last 1h, 24h, custom ranges)  
-- Staff authentication and role-based access  
-- Dashboard with real-time charts and alerts  
-- Stored procedures for trend queries  
-- Triggers for alert creation  
-
-### Non-functional Requirements
-
-- 3NF normalization  
-- Indexing for fast time-series lookups  
-- Optional table partitioning  
-- Password hashing  
-- Encrypted patient fields  
-- SQL injection prevention  
-- Real-time readiness (WebSocket/MQTT)  
-- Clean and responsive UI  
+## 👥 Team members & roles
+- **Cao Pham Minh Dang** — Backend Developer: API implementation, DB triggers, stored procedures, simulator integration.  
+- **Ngo Dinh Khanh** — Frontend Developer: Dashboard UI, real-time charts, alert panel.  
+- **Pham Dinh Hieu** — Database Engineer: ERD, DDL, normalization, indexing, partitioning strategy, performance tuning.  
+- **Nguyen Anh Duc** — DevOps / QA: Docker Compose, deployment scripts, automated tests, documentation and final presentation.
 
 ---
 
-## 🧱 Planned Core Entities
+## 📅 Timeline (3-week plan with milestones)
 
-- **Patient** — demographics, medical history  
-- **Vitals** — high-frequency vital-sign measurements  
-- **Alert** — generated warnings for abnormal values  
-- **Device** — monitoring devices  
-- **Staff** — users with roles  
-- **Threshold** — configurable vital-sign boundaries  
+> We plan an intensive 3-week development sprint focused on producing a working, demo-ready MVP and clear deliverables for grading.
 
-These form the backbone of the database’s ERD.
+### Week 1 — Design & core database
+- Finalize requirements and ERD (draw.io / PlantUML).  
+- Implement full MySQL DDL: tables, primary/foreign keys, indexes, partitioning strategy (example).  
+- Implement `Threshold`, `DeviceAssignment`, `Vitals`, `Alert` tables.  
+- Create sample data and seed scripts.  
+- Deliverables: `ERD.png`, `sql/ddl.sql`, `sql/sample_data.sql`.
 
----
+### Week 2 — Backend core & real-time ingestion
+- Implement backend API (Express) with secure endpoints and RBAC.  
+- Implement WebSocket server and simple client demo flows.  
+- Add triggers (AFTER INSERT on `vitals`) to create `alert` rows and at least two stored procedures (`get_last_n_readings`, `aggregate_daily_stats`).  
+- Build a sensor simulator that streams vitals into the API or directly into DB for demo scenarios.  
+- Deliverables: `backend/` code, triggers and stored procedures in `sql/`, `simulator/`.
 
-## 🔧 Tech Stack
-
-**Backend / API**  
-- Node.js / Express or Python (Flask / FastAPI)  
-- WebSocket/MQTT for real-time updates  
-
-**Database**  
-- MySQL / PostgreSQL  
-- Optional TimescaleDB extension for time series optimization  
-
-**Frontend**  
-- React + TailwindCSS  
-- Recharts / Chart.js  
-
-**Security**  
-- bcrypt hashing  
-- RBAC enforcement  
-- Parameterized SQL queries  
+### Week 3 — Frontend, integration, testing & presentation
+- Build React dashboard: patient list, live vitals charts, alert panel, patient detail modal.  
+- Integration testing: end-to-end demo with simulator (stable → deterioration → recovery scenario).  
+- Performance tuning: run basic insert/ query load tests, tune indexes/partitions.  
+- Prepare documentation: `README.md`, `GRADE.md` (run instructions for graders), demo video and slides.  
+- Deliverables: `frontend/` code, `docker-compose.yml`, `docs/`, final presentation materials.
 
 ---
 
-## 👥 Team Members & Roles
+## Closing notes
+We intentionally prioritize a MySQL-first implementation to showcase database design, query optimization, stored logic, and reproducible real-time behavior. Our deliverables will be easy to run locally (Docker Compose) and straightforward for graders to validate using provided SQL checks and scripted scenarios.
 
-| Name | Role | Responsibilities |
-|------|------|------------------|
-| Cao Pham Minh Dang | Backend Developer  | API, DB triggers, stored procedures |
-| Ngo Dinh Khanh     | Frontend Developer | Dashboard UI, charts, real-time visualization |
-| Pham Dinh Hieu     | Database Engineer  | ERD, normalization, indexing, partitioning |
-| Nguyen Anh Duc     | DevOps / QA        | Deployment, testing, documentation |
-
----
-
-## 📅 Timeline & Milestones
-
-| Week | Milestone |
-|------|-----------|
-| Week 1 | Requirements finalization, ERD design, tech stack setup |
-| Week 2 | Database implementation, DDL, triggers, sample data |
-| Week 3 | Backend API + real-time pipeline |
-| Week 4 | Dashboard UI, charts, alerts panel |
-| Week 5 | Integration testing, performance tuning |
-| Week 6 | Final documentation, video demo, presentation |
-
----
+If desired, after this README is committed we will add the full ERD and the complete `sql/ddl.sql` (including example partitioning, indexes, triggers, and stored procedures) and a ready-to-run `docker-compose.yml`.

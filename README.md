@@ -81,12 +81,10 @@ These entities form the backbone of the system’s ERD and database logic.
 
 | Name | Role | Responsibilities |
 |------|------|------------------|
-| Member 1 | Backend Developer | API, DB triggers, stored procedures |
-| Member 2 | Frontend Developer | Dashboard UI, charts, real-time visualization |
-| Member 3 | Database Engineer | ERD, normalization, indexing, partitioning |
-| Member 4 | DevOps / QA | Deployment, testing, documentation |
-
-*(Update names depending on your team.)*
+| Cao Pham Minh Dang | Backend Developer  | API, DB triggers, stored procedures       |
+| Ngo Dinh Khanh     | Frontend Developer | Dashboard UI, charts, real-time visualization |
+| Pham Dinh Hieu     | Database Engineer  | ERD, normalization, indexing, partitioning |
+| Nguyen Anh Duc     | DevOps / QA        | Deployment, testing, documentation |
 
 ---
 
@@ -101,9 +99,5 @@ These entities form the backbone of the system’s ERD and database logic.
 | Week 5 | Integration testing, performance tuning |
 | Week 6 | Final documentation, video demo, presentation |
 
----
-
-## 📌 Professional Notes
-This README serves as the landing page for the project repository. It summarizes the scope, architecture, and planned milestones to provide a clear overview for maintainers, collaborators, and evaluators.
 
 ---

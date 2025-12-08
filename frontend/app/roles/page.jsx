@@ -1,13 +1,14 @@
 import Link from "next/link";
 
 const palette = {
-  primary: "#0A5FB5",
-  primaryBright: "#1E88E5",
+  brand: "#0A5FB5",
+  brandBright: "#1E88E5",
   navy: "#0D47A1",
-  lightBg: "#E3F2FD",
-  softBlue: "#A7D0F5",
-  greyBorder: "#CBD3DD",
-  success: "#2ECC71"
+  light: "#E3F2FD",
+  soft: "#A7D0F5",
+  border: "#CBD3DD",
+  surface: "#FFFFFF",
+  success: "#2ECC71",
 };
 
 const roles = [
@@ -29,25 +30,25 @@ const roles = [
 
 export default function RoleSelectPage() {
   return (
-    <div className="min-h-screen" style={{ backgroundColor: palette.lightBg, color: palette.navy }}>
+    <div className="min-h-screen" style={{ backgroundColor: palette.light, color: palette.navy }}>
       <div className="mx-auto max-w-5xl px-6 py-12">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold" style={{ color: palette.primaryBright }}>Choose your role</p>
+            <p className="text-xs font-semibold" style={{ color: palette.brandBright }}>Choose your role</p>
             <h1 className="mt-2 text-3xl font-bold" style={{ color: palette.navy }}>Who is using MyMedQL today?</h1>
             <p className="mt-2 text-sm" style={{ color: palette.navy }}>Pick a role to enter a tailored experience.</p>
           </div>
-          <Link href="/" className="text-sm font-semibold" style={{ color: palette.primaryBright }}>Back to home</Link>
+          <Link href="/" className="text-sm font-semibold" style={{ color: palette.brandBright }}>Back to home</Link>
         </div>
 
         <div className="mt-10 grid gap-6 md:grid-cols-2">
           {roles.map((role) => (
-            <Link key={role.title} href={role.href} className="group rounded-2xl border bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md" style={{ borderColor: palette.greyBorder }}>
+            <Link key={role.title} href={role.href} className="group rounded-2xl border bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md" style={{ borderColor: palette.border }}>
               <div className="flex items-center justify-between">
-                <div className="rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: palette.softBlue, color: palette.primary }}>
+                <div className="rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: palette.soft, color: palette.brand }}>
                   {role.badge}
                 </div>
-                <span className="text-sm" style={{ color: palette.primaryBright }}>→</span>
+                <span className="text-sm" style={{ color: palette.brandBright }}>→</span>
               </div>
               <h2 className="mt-4 text-xl font-bold" style={{ color: palette.navy }}>{role.title}</h2>
               <p className="mt-2 text-sm" style={{ color: palette.navy }}>{role.desc}</p>
@@ -59,7 +60,7 @@ export default function RoleSelectPage() {
                   </div>
                 ))}
               </div>
-              <div className="mt-6 inline-flex items-center gap-2 text-sm font-semibold" style={{ color: palette.primary }}>
+              <div className="mt-6 inline-flex items-center gap-2 text-sm font-semibold" style={{ color: palette.brand }}>
                 Enter {role.title} space <span className="transition group-hover:translate-x-1">→</span>
               </div>
             </Link>

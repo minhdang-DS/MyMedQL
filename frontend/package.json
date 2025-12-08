@@ -1,0 +1,11 @@
+{
+  "name": "mymedql-frontend",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Frontend skeleton for MyMedQL",
+  "scripts": {
+    "start": "echo \"React app placeholder\"",
+    "build": "echo \"Build TBD\"",
+    "test": "echo \"Tests TBD\""
+  }
+}

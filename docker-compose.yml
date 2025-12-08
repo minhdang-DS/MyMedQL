@@ -1,0 +1,27 @@
+version: '3.9'
+services:
+  db:
+    build: ./docker
+    image: mymedql-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - ./docker/init:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend.Dockerfile
+    depends_on:
+      - db
+    ports:
+      - "3001:3001"
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend.Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"

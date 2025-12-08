@@ -1,0 +1,9 @@
+{
+  "name": "mymedql-simulator",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Simulator skeleton for MyMedQL",
+  "scripts": {
+    "start": "node src/device_simulator.js"
+  }
+}

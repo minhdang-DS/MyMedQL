@@ -1,0 +1,10 @@
+{
+  "name": "mymedql-backend",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Backend skeleton for MyMedQL",
+  "scripts": {
+    "start": "node src/app.js",
+    "test": "echo \"Tests TBD\""
+  }
+}

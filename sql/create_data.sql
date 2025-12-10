@@ -219,7 +219,7 @@ PARTITION BY RANGE (TO_DAYS(ts)) (
 CREATE TABLE IF NOT EXISTS alerts (
     alert_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     patient_id BIGINT UNSIGNED NOT NULL,
-    vitals_id BIGINT UNSIGNED DEFAULT NULL,     -- Reference to the vitals record that triggered this alert
+    vitals_id BIGINT UNSIGNED DEFAULT NULL,     -- Reference to vitals.vitals_id (no FK due to vitals table partitioning)
     alert_type VARCHAR(64) NOT NULL,            -- e.g., 'threshold_breach', 'device_failure'
     severity ENUM('low', 'medium', 'high', 'critical') NOT NULL DEFAULT 'medium',
     message TEXT NOT NULL,
@@ -458,12 +458,12 @@ BEGIN
     DECLARE v_previous_assignment_id BIGINT UNSIGNED;
     
     -- Find the most recent active assignment for this device (where assigned_to IS NULL)
+    -- Note: NEW.assignment_id doesn't exist in table yet during BEFORE INSERT, so no need to exclude it
     SELECT assignment_id
     INTO v_previous_assignment_id
     FROM device_assignments
     WHERE device_id = NEW.device_id
         AND assigned_to IS NULL
-        AND assignment_id != NEW.assignment_id  -- Exclude current insert (if any)
     ORDER BY assigned_from DESC
     LIMIT 1;
     

@@ -1,0 +1,127 @@
+erDiagram
+    PATIENTS ||--o{ ADMISSIONS : "has"
+    STAFF ||--o{ ADMISSIONS : "admits"
+    PATIENTS ||--o{ DEVICE_ASSIGNMENTS : "assigned"
+    DEVICES ||--o{ DEVICE_ASSIGNMENTS : "assigned_to"
+    STAFF ||--o{ DEVICE_ASSIGNMENTS : "assigns"
+    PATIENTS ||--o{ THRESHOLDS : "has (optional)"
+    STAFF ||--o{ THRESHOLDS : "creates"
+    PATIENTS ||--o{ VITALS : "has (logical)"
+    DEVICES ||--o{ VITALS : "records (logical)"
+    PATIENTS ||--o{ ALERTS : "has"
+    VITALS ||--o{ ALERTS : "triggers (logical)"
+    STAFF ||--o{ ALERTS : "creates"
+    STAFF ||--o{ ALERTS : "acknowledges"
+    ALERTS ||--o{ NOTIFICATIONS : "generates"
+    STAFF ||--o{ NOTIFICATIONS : "receives"
+
+    PATIENTS {
+        bigint_unsigned patient_id PK
+        varchar first_name
+        varchar last_name
+        date dob
+        enum gender
+        json contact_info
+        varbinary medical_history
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    STAFF {
+        int_unsigned staff_id PK
+        varchar name
+        varchar email UK
+        char password_hash
+        enum role
+        json metadata
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    DEVICES {
+        int_unsigned device_id PK
+        varchar device_type
+        varchar serial_number UK
+        json metadata
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    ADMISSIONS {
+        bigint_unsigned admission_id PK
+        bigint_unsigned patient_id FK
+        int_unsigned admitted_by FK
+        datetime admitted_at
+        datetime discharge_time
+        enum status
+        text discharge_notes
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    DEVICE_ASSIGNMENTS {
+        bigint_unsigned assignment_id PK
+        int_unsigned device_id FK
+        bigint_unsigned patient_id FK
+        int_unsigned assigned_by FK
+        datetime assigned_from
+        datetime assigned_to
+        varchar notes
+        timestamp created_at
+    }
+
+    THRESHOLDS {
+        bigint_unsigned threshold_id PK
+        varchar name
+        double min_value
+        double max_value
+        varchar unit
+        bigint_unsigned patient_id FK "nullable"
+        int_unsigned created_by FK
+        datetime effective_from
+        datetime effective_to
+        text notes
+        timestamp created_at
+    }
+
+    VITALS {
+        bigint_unsigned vitals_id PK
+        datetime ts PK "partition key"
+        bigint_unsigned patient_id "no FK"
+        int_unsigned device_id "no FK"
+        int heart_rate
+        int spo2
+        int bp_systolic
+        int bp_diastolic
+        decimal temperature_c
+        int respiration
+        json metadata
+        timestamp created_at
+    }
+
+    ALERTS {
+        bigint_unsigned alert_id PK
+        bigint_unsigned patient_id FK
+        bigint_unsigned vitals_id "no FK"
+        int_unsigned created_by FK "nullable"
+        int_unsigned acknowledged_by FK "nullable"
+        varchar alert_type
+        enum severity
+        text message
+        datetime created_at
+        datetime resolved_at
+        datetime acknowledged_at
+        json extra
+    }
+
+    NOTIFICATIONS {
+        bigint_unsigned notification_id PK
+        bigint_unsigned alert_id FK
+        int_unsigned recipient_staff_id FK "nullable"
+        enum recipient_role "nullable"
+        json payload
+        tinyint sent
+        datetime created_at
+        datetime delivered_at
+    }
+

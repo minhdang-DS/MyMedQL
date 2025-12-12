@@ -20,7 +20,7 @@ services:
       - ./sql/ddl:/docker-entrypoint-initdb.d/ddl
       - ./sql/seed:/docker-entrypoint-initdb.d/seed
     ports:
-      - "3306:3306"
+      - "3307:3306"  # Changed host port to 3307 to avoid conflict
     networks:
       - mymedql-network
     healthcheck:

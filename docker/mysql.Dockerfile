@@ -1,3 +1,18 @@
-# MySQL Dockerfile placeholder
-FROM mysql:8
-COPY init/init.sql /docker-entrypoint-initdb.d/init.sql
+FROM mysql:8.0
+
+# Set default character set and collation
+ENV MYSQL_DATABASE=mymedql
+ENV MYSQL_ROOT_PASSWORD=root
+
+# Copy initialization scripts
+# Files in /docker-entrypoint-initdb.d/ are executed in alphabetical order
+COPY init/*.sql /docker-entrypoint-initdb.d/
+
+# Expose MySQL port
+EXPOSE 3306
+
+# Configure MySQL for better performance
+RUN echo "[mysqld]" > /etc/mysql/conf.d/custom.cnf && \
+    echo "max_connections=200" >> /etc/mysql/conf.d/custom.cnf && \
+    echo "character-set-server=utf8mb4" >> /etc/mysql/conf.d/custom.cnf && \
+    echo "collation-server=utf8mb4_unicode_ci" >> /etc/mysql/conf.d/custom.cnf

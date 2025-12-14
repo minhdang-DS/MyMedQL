@@ -1,0 +1,204 @@
+@startuml MyMedQL_ER_Diagram_Chen_Notation
+!theme plain
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundcorner 0
+
+' Entities (Rectangles)
+rectangle "PATIENTS" as patients {
+  patient_id <<PK>>
+  --
+  first_name
+  last_name
+  dob
+  gender
+  contact_info
+  medical_history
+  created_at
+  updated_at
+}
+
+rectangle "STAFF" as staff {
+  staff_id <<PK>>
+  --
+  name
+  email <<UK>>
+  password_hash
+  role
+  metadata
+  created_at
+  updated_at
+}
+
+rectangle "DEVICES" as devices {
+  device_id <<PK>>
+  --
+  device_type
+  serial_number <<UK>>
+  metadata
+  created_at
+  updated_at
+}
+
+rectangle "ADMISSIONS" as admissions {
+  admission_id <<PK>>
+  --
+  patient_id <<FK>>
+  admitted_by <<FK>>
+  admitted_at
+  discharge_time
+  status
+  discharge_notes
+  created_at
+  updated_at
+}
+
+rectangle "DEVICE_ASSIGNMENTS" as device_assignments {
+  assignment_id <<PK>>
+  --
+  device_id <<FK>>
+  patient_id <<FK>>
+  assigned_by <<FK>>
+  assigned_from
+  assigned_to
+  notes
+  created_at
+}
+
+rectangle "THRESHOLDS" as thresholds {
+  threshold_id <<PK>>
+  --
+  name
+  min_value
+  max_value
+  unit
+  patient_id <<FK>> <<nullable>>
+  created_by <<FK>>
+  effective_from
+  effective_to
+  notes
+  created_at
+}
+
+rectangle "VITALS" as vitals {
+  vitals_id <<PK>>
+  ts <<PK>> <<partition>>
+  --
+  patient_id <<no FK>>
+  device_id <<no FK>>
+  heart_rate
+  spo2
+  bp_systolic
+  bp_diastolic
+  temperature_c
+  respiration
+  metadata
+  created_at
+}
+
+rectangle "ALERTS" as alerts {
+  alert_id <<PK>>
+  --
+  patient_id <<FK>>
+  vitals_id <<no FK>>
+  created_by <<FK>> <<nullable>>
+  acknowledged_by <<FK>> <<nullable>>
+  alert_type
+  severity
+  message
+  created_at
+  resolved_at
+  acknowledged_at
+  extra
+}
+
+rectangle "NOTIFICATIONS" as notifications {
+  notification_id <<PK>>
+  --
+  alert_id <<FK>>
+  recipient_staff_id <<FK>> <<nullable>>
+  recipient_role <<nullable>>
+  payload
+  sent
+  created_at
+  delivered_at
+}
+
+' Relationships (Diamonds)
+diamond "HAS" as has_admissions
+diamond "ADMITS" as admits
+diamond "ASSIGNED_TO" as assigned_to
+diamond "ASSIGNED" as assigned
+diamond "ASSIGNS" as assigns
+diamond "HAS" as has_thresholds
+diamond "CREATES" as creates_thresholds
+diamond "HAS" as has_vitals
+diamond "RECORDS" as records
+diamond "TRIGGERS" as triggers
+diamond "HAS" as has_alerts
+diamond "CREATES" as creates_alerts
+diamond "ACKNOWLEDGES" as acknowledges
+diamond "GENERATES" as generates
+diamond "RECEIVES" as receives
+
+' Relationships with cardinality
+patients ||--o{ has_admissions : "1"
+has_admissions }o--|| admissions : "N"
+
+staff ||--o{ admits : "1"
+admits }o--|| admissions : "N"
+
+patients ||--o{ assigned_to : "1"
+assigned_to }o--|| device_assignments : "N"
+
+devices ||--o{ assigned : "1"
+assigned }o--|| device_assignments : "N"
+
+staff ||--o{ assigns : "1"
+assigns }o--|| device_assignments : "N"
+
+patients ||--o| has_thresholds : "0..1"
+has_thresholds }o--|| thresholds : "N"
+
+staff ||--o{ creates_thresholds : "1"
+creates_thresholds }o--|| thresholds : "N"
+
+patients ||--o{ has_vitals : "1"
+has_vitals }o--|| vitals : "N"
+
+devices ||--o{ records : "1"
+records }o--|| vitals : "N"
+
+vitals ||--o{ triggers : "1"
+triggers }o--|| alerts : "N"
+
+patients ||--o{ has_alerts : "1"
+has_alerts }o--|| alerts : "N"
+
+staff ||--o{ creates_alerts : "1"
+creates_alerts }o--|| alerts : "N"
+
+staff ||--o{ acknowledges : "1"
+acknowledges }o--|| alerts : "N"
+
+alerts ||--o{ generates : "1"
+generates }o--|| notifications : "N"
+
+staff ||--o{ receives : "1"
+receives }o--|| notifications : "N"
+
+note right of vitals
+  **Partitioned Table**
+  No foreign keys allowed
+  Referential integrity via:
+  - Triggers
+  - Application logic
+end note
+
+note right of alerts
+  **vitals_id** has no FK
+  due to vitals partitioning
+end note
+
+@enduml
+

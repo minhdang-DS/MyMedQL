@@ -77,8 +77,8 @@ There are commercial and open-source patient-monitoring products. Our project di
 
 ## 🔧 Tech stack
 **Backend / API**  
-- Node.js / Express *or* Python (Flask / FastAPI)  
-- WebSocket/MQTT for real-time updates  
+- FastAPI
+- WebSocket for real-time updates  
 
 **Database**  
 - MySQL / PostgreSQL  

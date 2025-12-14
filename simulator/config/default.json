@@ -1,0 +1,18 @@
+{
+  "api": {
+    "baseUrl": "http://localhost:3000",
+    "ingestionEndpoint": "/api/v1/devices/ingest",
+    "assignmentEndpoint": "/api/v1/devices",
+    "apiKey": "default-ingestion-key-change-in-production"
+  },
+  "simulator": {
+    "sendInterval": 2,
+    "smoothingWindow": 60,
+    "noiseLevel": 0.03
+  },
+  "defaults": {
+    "patientId": 1,
+    "deviceId": 1
+  }
+}
+

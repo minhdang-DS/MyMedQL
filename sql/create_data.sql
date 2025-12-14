@@ -27,7 +27,7 @@ SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ERROR_FOR_DIV
 -- Stores patient demographic information and encrypted medical history.
 -- Medical history should be encrypted at the application layer before storage.
 CREATE TABLE IF NOT EXISTS patients (
-    patient_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    patient_id BIGINT UNSIGNED NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     dob DATE DEFAULT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS patients (
 -- Stores healthcare staff information with role-based access control.
 -- Passwords must be hashed using bcrypt in the application layer (60 chars).
 CREATE TABLE IF NOT EXISTS staff (
-    staff_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    staff_id INT UNSIGNED NOT NULL,
     name VARCHAR(150) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash CHAR(60) NOT NULL,            -- bcrypt hashes typically 60 chars; hashed in application
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS staff (
 -- ----------------------------------------------------------------------------
 -- Stores medical device information with unique serial numbers for tracking.
 CREATE TABLE IF NOT EXISTS devices (
-    device_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    device_id INT UNSIGNED NOT NULL,
     device_type VARCHAR(100) NOT NULL,
     serial_number VARCHAR(128) NOT NULL,
     metadata JSON DEFAULT NULL,
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS devices (
 -- Tracks patient admission lifecycle (admitted, discharged, transferred).
 -- Status is automatically updated via trigger when discharge_time is set.
 CREATE TABLE IF NOT EXISTS admissions (
-    admission_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    admission_id BIGINT UNSIGNED NOT NULL,
     patient_id BIGINT UNSIGNED NOT NULL,
     admitted_at DATETIME(6) NOT NULL,
     discharge_time DATETIME(6) DEFAULT NULL,
@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS admissions (
 -- Tracks device-to-patient assignment history over time.
 -- Ensures audit trail of which devices were assigned to which patients and when.
 CREATE TABLE IF NOT EXISTS device_assignments (
-    assignment_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    assignment_id BIGINT UNSIGNED NOT NULL,
     device_id INT UNSIGNED NOT NULL,
     patient_id BIGINT UNSIGNED NOT NULL,
     assigned_from DATETIME(6) NOT NULL,
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS device_assignments (
 -- Supports both global (patient_id IS NULL) and patient-specific thresholds.
 -- Patient-specific thresholds take precedence over global ones.
 CREATE TABLE IF NOT EXISTS thresholds (
-    threshold_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    threshold_id BIGINT UNSIGNED NOT NULL,
     name VARCHAR(64) NOT NULL,                  -- e.g., 'heart_rate', 'spo2', 'temperature_c', 'bp_systolic'
     min_value DOUBLE DEFAULT NULL,
     max_value DOUBLE DEFAULT NULL,
@@ -182,7 +182,7 @@ CREATE TABLE IF NOT EXISTS thresholds (
 --       2. Trigger trg_vitals_validate_admission (ensures patient has active admission)
 --       3. Application logic should validate patient_id and device_id exist
 CREATE TABLE IF NOT EXISTS vitals (
-    vitals_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    vitals_id BIGINT UNSIGNED NOT NULL,
     patient_id BIGINT UNSIGNED NOT NULL,        -- References patients.patient_id (enforced by application/triggers)
     device_id INT UNSIGNED DEFAULT NULL,        -- References devices.device_id (enforced by application)
     ts DATETIME(6) NOT NULL,

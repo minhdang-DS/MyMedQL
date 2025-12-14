@@ -1,11 +1,21 @@
 {
   "name": "mymedql-frontend",
-  "version": "0.0.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Frontend skeleton for MyMedQL",
+  "description": "Next.js frontend for MyMedQL",
   "scripts": {
-    "start": "echo \"React app placeholder\"",
-    "build": "echo \"Build TBD\"",
-    "test": "echo \"Tests TBD\""
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14"
   }
 }

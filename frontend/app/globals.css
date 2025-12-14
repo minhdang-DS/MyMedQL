@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #0D47A1;
+  background-color: #E3F2FD;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+body {
+  margin: 0;
+  background-color: #E3F2FD;
+  color: #0D47A1;
+}
+
+button {
+  cursor: pointer;
+}

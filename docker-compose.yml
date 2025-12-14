@@ -1,27 +1,84 @@
-version: '3.9'
 services:
+  # MySQL Database Service
   db:
-    build: ./docker
+    build:
+      context: ./docker
+      dockerfile: mysql.Dockerfile
     image: mymedql-mysql
+    container_name: mymedql-db
     environment:
       MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mymedql
+      MYSQL_USER: medql_user
+      MYSQL_PASSWORD: medql_pass
     volumes:
-      - ./docker/init:/docker-entrypoint-initdb.d
+      # Persist database data
+      - mysql_data:/var/lib/mysql
+      # Mount SQL initialization scripts
+      - ./sql/ddl:/docker-entrypoint-initdb.d/ddl
+      - ./sql/seed:/docker-entrypoint-initdb.d/seed
     ports:
-      - "3306:3306"
+      - "3307:3306"  # Changed host port to 3307 to avoid conflict
+    networks:
+      - mymedql-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Backend API Service
   backend:
     build:
       context: ./backend
       dockerfile: ../docker/backend.Dockerfile
-    depends_on:
-      - db
+    image: mymedql-backend
+    container_name: mymedql-backend
+    environment:
+      # Database connection
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: mymedql
+      DB_USER: medql_user
+      DB_PASSWORD: medql_pass
+      # Application settings
+      NODE_ENV: production
+      PORT: 3001
     ports:
       - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - mymedql-network # not sure what this means
+    restart: unless-stopped
+
+  # Frontend Web Service
   frontend:
     build:
       context: ./frontend
       dockerfile: ../docker/frontend.Dockerfile
-    depends_on:
-      - backend
+    image: mymedql-frontend
+    container_name: mymedql-frontend
+    environment:
+      # Backend API URL (internal network)
+      NEXT_PUBLIC_API_URL: http://backend:3001
+      NODE_ENV: production
     ports:
       - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - mymedql-network
+    restart: unless-stopped
+
+# Define persistent volumes
+volumes:
+  mysql_data:
+    driver: local
+
+# Define network for service communication
+networks:
+  mymedql-network:
+    driver: bridge

@@ -1,0 +1,10 @@
+{
+  "name": "Cardiac Arrest Simulation",
+  "duration_seconds": 60,
+  "steps": [
+    { "time": 0, "hr": 80, "spo2": 98, "behavior": "stable" },
+    { "time": 15, "hr": 140, "spo2": 95, "behavior": "linear_increase" },
+    { "time": 30, "hr": 0, "spo2": 0, "behavior": "sudden_drop" }
+  ]
+}
+

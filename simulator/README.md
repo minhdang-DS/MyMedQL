@@ -1,3 +1,36 @@
+# MyMedQL Simulator
+
+Generates deterministic vital-sign streams based on JSON scenarios and pushes them to the backend ingestion endpoint.
+
+Quick start
+-----------
+1. Install dependencies:
+   ```bash
+   cd MyMedQL/simulator
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+2. Configure `config.json` for backend URL, patient, and scenario file.
+3. Run:
+   ```bash
+   python -m src.device_simulator
+   ```
+
+Scenario format
+---------------
+`scenarios/*.json` files define a name, duration, and timed steps. Each step sets a target for the vital signs and a behavior hint. Example:
+```json
+{
+  "name": "Cardiac Arrest Simulation",
+  "duration_seconds": 60,
+  "steps": [
+    { "time": 0, "hr": 80, "spo2": 98, "behavior": "stable" },
+    { "time": 15, "hr": 140, "spo2": 95, "behavior": "linear_increase" },
+    { "time": 30, "hr": 0, "spo2": 0, "behavior": "sudden_drop" }
+  ]
+}
+```
 # MyMedQL Device Simulator
 
 A Node.js application that generates realistic, time-series vital signs data and sends it to the MyMedQL backend API. The simulator uses deterministic scenarios with smooth transitions and realistic noise to test the complete system pipeline.
@@ -255,3 +288,4 @@ The simulator works seamlessly with the backend:
 ## License
 
 Private project for COMP3030 course.
+

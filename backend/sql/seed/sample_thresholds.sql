@@ -10,7 +10,7 @@
 --       Replace <bcrypt-hash> with actual bcrypt hashes.
 -- ============================================================================
 
-USE `MyMedQL`;
+USE `mymedql`;
 
 -- ----------------------------------------------------------------------------
 -- Example Global Thresholds

@@ -12,7 +12,7 @@
 --   - High-frequency readings for performance testing
 -- ============================================================================
 
-USE `MyMedQL`;
+USE `mymedql`;
 
 -- ----------------------------------------------------------------------------
 -- Demo Scenario 1: Normal Vital Signs

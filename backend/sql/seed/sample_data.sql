@@ -9,7 +9,7 @@
 --            Replace <bcrypt-hash> with actual bcrypt hashes before running.
 -- ============================================================================
 
-USE `MyMedQL`;
+USE `mymedql`;
 
 -- ----------------------------------------------------------------------------
 -- Example Staff Records
@@ -38,10 +38,10 @@ INSERT INTO staff (name, email, password_hash, role, metadata) VALUES
 -- This example shows plain text for demonstration; in production, encrypt before inserting.
 
 INSERT INTO patients (first_name, last_name, dob, gender, contact_info, medical_history) VALUES
-    ('John', 'Doe', '1980-05-15', 'male', 
-     JSON_OBJECT('phone', '+1-555-0101', 'email', 'john.doe@example.com', 
-                 'emergency_contact', JSON_OBJECT('name', 'Jane Doe', 'phone', '+1-555-0102')), 
-     NULL),
+    -- ('John', 'Doe', '1980-05-15', 'male', 
+    --  JSON_OBJECT('phone', '+1-555-0101', 'email', 'john.doe@example.com', 
+    --              'emergency_contact', JSON_OBJECT('name', 'Jane Doe', 'phone', '+1-555-0102')), 
+    --  NULL),
     ('Jane', 'Smith', '1975-08-22', 'female',
      JSON_OBJECT('phone', '+1-555-0201', 'email', 'jane.smith@example.com',
                  'emergency_contact', JSON_OBJECT('name', 'John Smith', 'phone', '+1-555-0202')),

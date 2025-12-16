@@ -13,7 +13,7 @@ function useScrollAnimation() {
     if (!observerRef.current) {
       observerRef.current = new IntersectionObserver(
         ([entry]) => {
-          if (entry.isIntersecting) {
+          if (entry.isIntersecting) { 
             setIsVisible(true);
             // Unobserve after animation triggers to prevent re-triggering
             if (observerRef.current && ref.current) {
@@ -679,14 +679,14 @@ export default function Page() {
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/roles" className="rounded-lg border px-5 py-2.5 text-sm font-semibold transition-all duration-300 hover:bg-gray-50 hover:scale-105 hover:shadow-md" style={{ color: palette.brand, borderColor: palette.brand, fontFamily: '"Inter", sans-serif' }}>Get Started</Link>
-            <button className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-all duration-300 hover:opacity-90 hover:scale-105 hover:shadow-lg" style={{ backgroundColor: palette.brand, boxShadow: `0 4px 12px ${palette.brand}40`, fontFamily: '"Inter", sans-serif' }}>Start Demo</button>
+            <button className="rounded-lg px-5 py-2.5 text-sm font-semibold transition-all duration-300 hover:opacity-90 hover:scale-105 hover:shadow-lg" style={{ backgroundColor: palette.brand, color: '#000000', boxShadow: `0 4px 12px ${palette.brand}40`, fontFamily: '"Inter", sans-serif' }}>Start Demo</button>
           </div>
         </div>
       </header>
 
       <main>
         {/* Hero */}
-        <section id="product" className="mx-auto max-w-7xl px-6 pt-24 pb-24 relative">
+        <section id="product" className="mx-auto max-w-7xl px-6 pt-12 pb-24 relative">
           <div className="absolute inset-0 opacity-5" style={{
             background: 'radial-gradient(circle at 30% 50%, rgba(0, 184, 212, 0.3) 0%, transparent 50%), radial-gradient(circle at 70% 80%, rgba(30, 58, 95, 0.2) 0%, transparent 50%)'
           }}></div>
@@ -734,6 +734,129 @@ export default function Page() {
             </AnimatedSection>
           </div>
         </section>
+
+        {/* Statistics Section */}
+        <AnimatedSection>
+          <section className="mx-auto max-w-7xl px-6 -mt-8 pb-16">
+            <div className="relative">
+              {/* Glassmorphism statistics panel with blue border */}
+              <div 
+                className="rounded-2xl p-8 md:p-12 backdrop-blur-md"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.3)',
+                  border: '2px solid rgba(0, 184, 212, 0.5)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.2)'
+                }}
+              >
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+                  {/* Number of Staff */}
+                  <div className="text-center">
+                    <div 
+                      className="text-5xl md:text-6xl font-bold mb-2"
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontFamily: '"Inter", sans-serif',
+                        WebkitTextStroke: '0.5px #00B8D4',
+                        textStroke: '0.5px #00B8D4',
+                        textShadow: '-0.5px -0.5px 0 #00B8D4, 0.5px -0.5px 0 #00B8D4, -0.5px 0.5px 0 #00B8D4, 0.5px 0.5px 0 #00B8D4, 0 2px 10px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      50+
+                    </div>
+                    <div 
+                      className="text-sm md:text-base font-medium"
+                      style={{ 
+                        color: '#00B8D4',
+                        fontFamily: '"Inter", sans-serif',
+                        textShadow: '0 1px 5px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      healthcare staff members
+                    </div>
+                  </div>
+
+                  {/* Number of Patients */}
+                  <div className="text-center">
+                    <div 
+                      className="text-5xl md:text-6xl font-bold mb-2"
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontFamily: '"Inter", sans-serif',
+                        WebkitTextStroke: '0.5px #00B8D4',
+                        textStroke: '0.5px #00B8D4',
+                        textShadow: '-0.5px -0.5px 0 #00B8D4, 0.5px -0.5px 0 #00B8D4, -0.5px 0.5px 0 #00B8D4, 0.5px 0.5px 0 #00B8D4, 0 2px 10px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      10,000+
+                    </div>
+                    <div 
+                      className="text-sm md:text-base font-medium"
+                      style={{ 
+                        color: '#00B8D4',
+                        fontFamily: '"Inter", sans-serif',
+                        textShadow: '0 1px 5px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      patients monitored
+                    </div>
+                  </div>
+
+                  {/* Patient Satisfaction Rating */}
+                  <div className="text-center">
+                    <div 
+                      className="text-5xl md:text-6xl font-bold mb-2"
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontFamily: '"Inter", sans-serif',
+                        WebkitTextStroke: '0.5px #00B8D4',
+                        textStroke: '0.5px #00B8D4',
+                        textShadow: '-0.5px -0.5px 0 #00B8D4, 0.5px -0.5px 0 #00B8D4, -0.5px 0.5px 0 #00B8D4, 0.5px 0.5px 0 #00B8D4, 0 2px 10px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      95%
+                    </div>
+                    <div 
+                      className="text-sm md:text-base font-medium"
+                      style={{ 
+                        color: '#00B8D4',
+                        fontFamily: '"Inter", sans-serif',
+                        textShadow: '0 1px 5px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      patient satisfaction rating
+                    </div>
+                  </div>
+
+                  {/* Response Time */}
+                  <div className="text-center">
+                    <div 
+                      className="text-5xl md:text-6xl font-bold mb-2"
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontFamily: '"Inter", sans-serif',
+                        WebkitTextStroke: '0.5px #00B8D4',
+                        textStroke: '0.5px #00B8D4',
+                        textShadow: '-0.5px -0.5px 0 #00B8D4, 0.5px -0.5px 0 #00B8D4, -0.5px 0.5px 0 #00B8D4, 0.5px 0.5px 0 #00B8D4, 0 2px 10px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      &lt;2s
+                    </div>
+                    <div 
+                      className="text-sm md:text-base font-medium"
+                      style={{ 
+                        color: '#00B8D4',
+                        fontFamily: '"Inter", sans-serif',
+                        textShadow: '0 1px 5px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      average response time
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </AnimatedSection>
 
         {/* Value Props */}
         <AnimatedSection>
@@ -1005,7 +1128,7 @@ export default function Page() {
                 <AnimatedSection delay={0.3}>
                   <div className={`${sectionCard} p-8 h-64 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-xl`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20`, backgroundColor: 'rgba(255, 255, 255, 0.85)' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = palette.brand; e.currentTarget.style.boxShadow = `0 8px 24px ${palette.brand}40`; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = palette.brand + '40'; e.currentTarget.style.boxShadow = `0 4px 12px ${palette.brand}20`; }}>
                     <div className="mb-4 transition-transform duration-300">
-                      <span className="text-3xl inline-block" role="img" aria-label="github">💻</span>
+                      <img src="/github.png" alt="GitHub" className="w-12 h-12" />
                     </div>
                     <h3 className="text-lg font-semibold mb-3 transition-colors duration-300" style={{ color: palette.navy, fontFamily: '"Inter", sans-serif', fontWeight: 600 }}>GitHub</h3>
                     <p className="text-sm leading-relaxed mb-4" style={{ color: '#37474F', lineHeight: '1.6', fontFamily: '"Inter", sans-serif' }}>

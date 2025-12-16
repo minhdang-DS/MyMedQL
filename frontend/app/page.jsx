@@ -1030,22 +1030,25 @@ export default function Page() {
               <div className="relative w-full mask-gradient">
                 <div className="flex w-max gap-6 hover:pause-on-hover animate-scroll">
                   {[
-                    { name: "Cao Pham Minh Dang", role: "Backend Developer" },
-                    { name: "Ngo Dinh Khanh", role: "Frontend Developer" },
-                    { name: "Pham Dinh Hieu", role: "Database Engineer" },
-                    { name: "Nguyen Anh Duc", role: "DevOps / QA" },
+                    { name: "Cao Pham Minh Dang", role: "Database Engineer", image: "/Cao_Pham_Minh_Dang.jpg" },
+                    { name: "Ngo Dinh Khanh", role: "Backend Developer", image: "/Ngo_Dinh_Khanh.jpg" },
+                    { name: "Pham Dinh Hieu", role: "Backend Developer", image: "/Pham_Dinh_Hieu.jpg" },
+                    { name: "Nguyen Anh Duc", role: "Frontend Developer", image: "/Nguyen_Anh_Duc.jpg" },
                     // Duplicate for seamless loop
-                    { name: "Cao Pham Minh Dang", role: "Backend Developer" },
-                    { name: "Ngo Dinh Khanh", role: "Frontend Developer" },
-                    { name: "Pham Dinh Hieu", role: "Database Engineer" },
-                    { name: "Nguyen Anh Duc", role: "DevOps / QA" }
+                    { name: "Cao Pham Minh Dang", role: "Database Engineer", image: "/Cao_Pham_Minh_Dang.jpg" },
+                    { name: "Ngo Dinh Khanh", role: "Backend Developer", image: "/Ngo_Dinh_Khanh.jpg" },
+                    { name: "Pham Dinh Hieu", role: "Backend Developer", image: "/Pham_Dinh_Hieu.jpg" },
+                    { name: "Nguyen Anh Duc", role: "Frontend Developer", image: "/Nguyen_Anh_Duc.jpg" }
                   ].map((member, idx) => (
-                    <div key={idx} className={`${sectionCard} w-64 h-48 flex-shrink-0 p-6 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-xl`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20`, backgroundColor: 'rgba(255, 255, 255, 0.85)' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = palette.brand; e.currentTarget.style.boxShadow = `0 8px 24px ${palette.brand}40`; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = palette.brand + '40'; e.currentTarget.style.boxShadow = `0 4px 12px ${palette.brand}20`; }}>
-                      <div className="h-12 w-12 rounded-full mb-4 flex items-center justify-center text-base font-bold transition-transform duration-300 hover:scale-110" style={{ backgroundColor: palette.brand + '20', color: palette.brand }}>
-                        {member.name.charAt(0)}
-                      </div>
-                      <div className="font-bold truncate mb-1 transition-colors duration-300" style={{ color: palette.navy, fontFamily: '"Inter", sans-serif', fontWeight: 600 }}>{member.name}</div>
-                      <div className="text-xs font-semibold transition-colors duration-300" style={{ color: palette.brand }}>{member.role}</div>
+                    <div key={idx} className={`${sectionCard} w-80 h-64 flex-shrink-0 p-6 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-xl flex flex-col items-center`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20`, backgroundColor: 'rgba(255, 255, 255, 0.85)' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = palette.brand; e.currentTarget.style.boxShadow = `0 8px 24px ${palette.brand}40`; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = palette.brand + '40'; e.currentTarget.style.boxShadow = `0 4px 12px ${palette.brand}20`; }}>
+                      <img 
+                        src={member.image} 
+                        alt={member.name}
+                        className="h-32 w-32 rounded-full mb-4 object-cover transition-transform duration-300 hover:scale-110"
+                        style={{ border: `3px solid ${palette.brand}40`, boxShadow: `0 4px 12px ${palette.brand}20` }}
+                      />
+                      <div className="font-bold truncate mb-1 transition-colors duration-300 text-center w-full" style={{ color: palette.navy, fontFamily: '"Inter", sans-serif', fontWeight: 600 }}>{member.name}</div>
+                      <div className="text-xs font-semibold transition-colors duration-300 text-center" style={{ color: palette.brand }}>{member.role}</div>
                     </div>
                   ))}
                 </div>

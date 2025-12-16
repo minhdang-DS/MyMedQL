@@ -18,7 +18,7 @@ button {
   cursor: pointer;
 }
 
-/* ECG Animation */
+/* ECG Animation - Continuous scrolling */
 @keyframes ecg-scroll {
   0% {
     transform: translateX(0);
@@ -31,6 +31,48 @@ button {
 
 .animate-ecg-scroll {
   animation: ecg-scroll 4s linear infinite;
+}
+
+/* Respiration Animation */
+@keyframes respiration-scroll {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-respiration-scroll {
+  animation: respiration-scroll 6s linear infinite;
+}
+
+/* Plethysmograph Animation */
+@keyframes pleth-scroll {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-pleth-scroll {
+  animation: pleth-scroll 3s linear infinite;
+}
+
+/* Pulse Animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1.5);
+  }
 }
 
 /* Marquee Animation */

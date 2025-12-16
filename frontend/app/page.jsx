@@ -1,160 +1,606 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 
-// Animated ECG Waveform Component with realistic heartbeat pattern
-function EcgWaveform() {
-  // Dynamic heart rate state - fluctuates to simulate real monitoring
-  const [heartRate, setHeartRate] = useState(72);
+// Futuristic Medical Patient Monitoring Dashboard
+function MedicalMonitoringDashboard() {
+  const [heartRate, setHeartRate] = useState(88);
   const [spo2, setSpo2] = useState(98);
+  const [systolic, setSystolic] = useState(128);
+  const [diastolic, setDiastolic] = useState(82);
+  const [temperature, setTemperature] = useState(36.8);
+  const [respirationRate, setRespirationRate] = useState(18);
   const [ecgPath, setEcgPath] = useState('');
-  const [pathKey, setPathKey] = useState(0); // Force re-render of path
+  const [plethPath, setPlethPath] = useState('');
+  const [respirationPath, setRespirationPath] = useState('');
+  const [ecgOffset, setEcgOffset] = useState(0);
+  const [plethOffset, setPlethOffset] = useState(0);
+  const [respirationOffset, setRespirationOffset] = useState(0);
+  const [numberFlicker, setNumberFlicker] = useState(1);
+  
+  // Use refs to avoid DOM queries on every frame
+  const ecgContainerRef = useRef(null);
+  const plethContainerRef = useRef(null);
+  const respContainerRef = useRef(null);
+  const containerWidthsRef = useRef({ ecg: 600, pleth: 400, resp: 600 });
+  const offsetsRef = useRef({ ecg: 0, pleth: 0, resp: 0 });
 
-  // Generate random ECG pattern with variations
-  const generateEcgPath = () => {
-    let path = 'M0,35';
-    const baseY = 35;
-    let x = 0;
-
-    // Generate 10 heartbeat cycles with random variations
-    for (let beat = 0; beat < 10; beat++) {
-      // Random variations for each beat
-      const spikeUp = 5 + Math.random() * 12;      // QRS spike up (5-17 units up from baseline)
-      const spikeDown = 15 + Math.random() * 10;   // QRS spike down (15-25 units down from baseline)
-      const pWaveHeight = 2 + Math.random() * 3;   // P wave height variation
-      const tWaveHeight = 4 + Math.random() * 5;   // T wave height variation
-      const beatWidth = 40 + Math.random() * 15;   // Variable beat spacing (40-55 units)
-      const noiseAmount = () => (Math.random() - 0.5) * 2; // Small baseline noise
-
-      // Baseline with slight noise before P wave
-      path += ` L${x + 2},${baseY + noiseAmount()}`;
-      path += ` L${x + 4},${baseY + noiseAmount()}`;
-
-      // P wave (small bump)
-      path += ` L${x + 6},${baseY + noiseAmount()}`;
-      path += ` Q${x + 9},${baseY - pWaveHeight} ${x + 12},${baseY + noiseAmount()}`;
-
-      // PR segment (flat with noise)
-      path += ` L${x + 15},${baseY + noiseAmount()}`;
-      path += ` L${x + 17},${baseY + noiseAmount()}`;
-
-      // QRS Complex - the sharp spike!
-      path += ` L${x + 18},${baseY + 2 + noiseAmount()}`; // Small dip (Q)
-      path += ` L${x + 20},${baseY - spikeUp}`;           // Sharp spike UP (R)
-      path += ` L${x + 22},${baseY + spikeDown}`;         // Sharp spike DOWN (S)
-      path += ` L${x + 24},${baseY - 5 + noiseAmount()}`; // Recovery
-      path += ` L${x + 26},${baseY + noiseAmount()}`;     // Back to baseline
-
-      // ST segment (short flat)
-      path += ` L${x + 30},${baseY + noiseAmount()}`;
-
-      // T wave (rounded bump)
-      path += ` Q${x + 35},${baseY - tWaveHeight} ${x + 40},${baseY + noiseAmount()}`;
-
-      // Baseline until next beat
-      path += ` L${x + beatWidth},${baseY + noiseAmount()}`;
-
-      x += beatWidth;
+  // Generate continuous ECG waveform - regular spacing with pronounced peaks like clinical monitor
+  const generateContinuousEcgPath = (offset, containerWidth) => {
+    const baseY = 50;
+    const viewWidth = containerWidth || 600;
+    const beatInterval = 120; // Regular spacing between beats (consistent rhythm)
+    let path = '';
+    let x = -(offset % (beatInterval * 3)); // Negative offset for continuous scroll
+    
+    // Generate enough beats to fill viewport + buffer, ensuring full width coverage
+    let currentX = x;
+    const endX = viewWidth * 2; // Generate well beyond viewport
+    
+    // Start path at the beginning
+    path += `M${currentX},${baseY}`;
+    
+    // Add baseline before first beat
+    const initialBaseline = 30;
+    currentX += initialBaseline;
+    path += ` L${currentX},${baseY}`;
+    
+    // Generate beats until we've covered enough width
+    while (currentX < endX) {
+      // Flat baseline leading to beat (most of the interval)
+      const baselineEnd = currentX + beatInterval * 0.80;
+      path += ` L${baselineEnd},${baseY}`;
+      
+      // P wave - small rounded wave before QRS
+      const pWave = 3 + Math.random() * 2;
+      const pX1 = currentX + beatInterval * 0.82;
+      const pX2 = currentX + beatInterval * 0.84;
+      path += ` Q${pX1},${baseY - pWave} ${pX2},${baseY}`;
+      
+      // PR segment - flat line
+      path += ` L${currentX + beatInterval * 0.86},${baseY}`;
+      
+      // QRS complex - sharp, pronounced spikes
+      // Q - small initial dip
+      path += ` L${currentX + beatInterval * 0.87},${baseY + 1}`;
+      // R - tall sharp peak (pronounced upward spike)
+      const rWave = 28 + Math.random() * 4; // Tall R-wave
+      path += ` L${currentX + beatInterval * 0.88},${baseY - rWave}`;
+      // S - deep downward spike
+      const sWave = 32 + Math.random() * 5; // Deep S-wave
+      path += ` L${currentX + beatInterval * 0.89},${baseY + sWave}`;
+      // Recovery back to baseline
+      path += ` L${currentX + beatInterval * 0.90},${baseY - 2}`;
+      path += ` L${currentX + beatInterval * 0.91},${baseY}`;
+      
+      // ST segment - flat line
+      path += ` L${currentX + beatInterval * 0.95},${baseY}`;
+      
+      // T wave - rounded wave after QRS
+      const tWave = 6 + Math.random() * 3;
+      const tX1 = currentX + beatInterval * 0.97;
+      const tX2 = currentX + beatInterval * 0.99;
+      path += ` Q${tX1},${baseY - tWave} ${tX2},${baseY}`;
+      
+      // Continue baseline to next beat
+      currentX += beatInterval;
+      path += ` L${currentX},${baseY}`;
     }
-
+    
     return path;
   };
 
-  useEffect(() => {
-    // Generate initial ECG path
-    setEcgPath(generateEcgPath());
+  // Generate continuous plethysmograph waveform - full width with increased amplitude
+  const generateContinuousPlethPath = (offset, containerWidth) => {
+    const baseY = 70;
+    const height = 80; // Increased height for more dynamic visualization
+    const viewWidth = containerWidth || 400;
+    const pulseInterval = 18 + Math.random() * 4; // Slight variation in pulse spacing
+    let path = '';
+    let x = -(offset % (pulseInterval * 3)); // Negative offset for continuous scroll
+    
+    // Generate enough pulses to fill viewport + buffer
+    let currentX = x;
+    const endX = viewWidth * 2;
+    
+    // Start path
+    path += `M${currentX},${baseY}`;
+    
+    // Generate pulses until we've covered enough width
+    while (currentX < endX) {
+      const pulseWidth = pulseInterval + (Math.random() - 0.5) * 2; // Variable pulse width
+      const pulseHeight = height * (0.75 + Math.random() * 0.25); // More variation in amplitude
+      const variation = Math.random() * 5; // Increased variation
+      
+      // Rising edge - more pronounced
+      path += ` L${currentX + pulseWidth * 0.15},${baseY - pulseHeight * 0.25}`;
+      path += ` L${currentX + pulseWidth * 0.30},${baseY - pulseHeight * 0.60}`;
+      path += ` L${currentX + pulseWidth * 0.45},${baseY - pulseHeight * 0.85}`;
+      path += ` L${currentX + pulseWidth * 0.50},${baseY - pulseHeight + variation}`;
+      
+      // Peak - sharper
+      path += ` L${currentX + pulseWidth * 0.52},${baseY - pulseHeight + variation * 0.7}`;
+      
+      // Dicrotic notch - more pronounced
+      const notchDepth = 5 + Math.random() * 4;
+      path += ` L${currentX + pulseWidth * 0.56},${baseY - pulseHeight * 0.80}`;
+      path += ` L${currentX + pulseWidth * 0.60},${baseY - pulseHeight * 0.65 + notchDepth}`;
+      path += ` L${currentX + pulseWidth * 0.65},${baseY - pulseHeight * 0.60}`;
+      
+      // Falling edge - smoother descent
+      path += ` L${currentX + pulseWidth * 0.72},${baseY - pulseHeight * 0.40}`;
+      path += ` L${currentX + pulseWidth * 0.82},${baseY - pulseHeight * 0.20}`;
+      path += ` L${currentX + pulseWidth * 0.92},${baseY - pulseHeight * 0.05}`;
+      path += ` L${currentX + pulseWidth},${baseY}`;
 
-    // Regenerate ECG pattern every 3 seconds for dynamic variation
-    const ecgInterval = setInterval(() => {
-      setEcgPath(generateEcgPath());
-      setPathKey(prev => prev + 1);
-    }, 3000);
+      currentX += pulseWidth;
+    }
+    
+    return path;
+  };
 
-    // Change heart rate every 2 seconds to simulate fluctuation
-    const hrInterval = setInterval(() => {
-      // Generate realistic heart rate variations (68-108 BPM range with occasional spikes)
-      const variations = [68, 70, 72, 74, 76, 78, 80, 82, 85, 88, 92, 96, 102, 108];
-      const randomHR = variations[Math.floor(Math.random() * variations.length)];
-      setHeartRate(randomHR);
+  // Generate continuous respiration waveform - full width with large sinusoidal cycles
+  const generateContinuousRespirationPath = (offset, containerWidth) => {
+    const baseY = 50;
+    const viewWidth = containerWidth || 600;
+    const cycleWidth = 60 + Math.random() * 15; // Variable cycle width for realism
+    let path = '';
+    let x = -(offset % (cycleWidth * 3)); // Negative offset for continuous scroll
+    
+    // Generate enough cycles to fill viewport + buffer
+    let currentX = x;
+    const endX = viewWidth * 2;
+    const points = 40; // More points for smoother curves
+    
+    // Start path
+    path += `M${currentX},${baseY}`;
+    
+    // Generate cycles until we've covered enough width
+    while (currentX < endX) {
+      // Large amplitude with variation - much more pronounced inhale/exhale
+      const amplitude = 28 + Math.random() * 12; // Significantly increased amplitude
+      const cycleW = cycleWidth + (Math.random() - 0.5) * 8; // Variable cycle width
+      
+      // Generate smooth sinusoidal wave with subtle variations
+      for (let i = 0; i <= points; i++) {
+        const t = (i / points) * Math.PI * 2;
+        // Add subtle variation for realism (not perfectly smooth)
+        const variation = (Math.random() - 0.5) * 1.5;
+        // Use sine wave for smooth breathing pattern
+        const y = baseY - Math.sin(t) * amplitude + variation;
+        const xPos = currentX + (i * cycleW / points);
+        path += ` L${xPos},${y}`;
+      }
+      
+      currentX += cycleW;
+    }
+    
+    return path;
+  };
 
-      // SpO2 stays more stable (96-99%)
-      const spo2Values = [96, 97, 97, 98, 98, 98, 99, 99];
-      setSpo2(spo2Values[Math.floor(Math.random() * spo2Values.length)]);
-    }, 2000);
-
-    return () => {
-      clearInterval(ecgInterval);
-      clearInterval(hrInterval);
-    };
+  // Memoize path generation functions
+  const updateContainerWidths = useCallback(() => {
+    if (ecgContainerRef.current) {
+      containerWidthsRef.current.ecg = ecgContainerRef.current.offsetWidth || 600;
+    }
+    if (plethContainerRef.current) {
+      containerWidthsRef.current.pleth = plethContainerRef.current.offsetWidth || 400;
+    }
+    if (respContainerRef.current) {
+      containerWidthsRef.current.resp = respContainerRef.current.offsetWidth || 600;
+    }
   }, []);
 
-  // Determine heart rate color based on value
+  useEffect(() => {
+    // Initialize paths - wait for DOM to be ready
+    const initTimeout = setTimeout(() => {
+      updateContainerWidths();
+      const widths = containerWidthsRef.current;
+      
+      // Generate long base paths once (3x container width for seamless scrolling)
+      const baseEcgPath = generateContinuousEcgPath(0, widths.ecg * 3);
+      const basePlethPath = generateContinuousPlethPath(0, widths.pleth * 3);
+      const baseRespirationPath = generateContinuousRespirationPath(0, widths.resp * 3);
+      
+      setEcgPath(baseEcgPath);
+      setPlethPath(basePlethPath);
+      setRespirationPath(baseRespirationPath);
+    }, 0);
+    
+    // Update on resize (debounced)
+    let resizeTimeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        updateContainerWidths();
+        const widths = containerWidthsRef.current;
+        // Regenerate paths on resize
+        setEcgPath(generateContinuousEcgPath(0, widths.ecg * 3));
+        setPlethPath(generateContinuousPlethPath(0, widths.pleth * 3));
+        setRespirationPath(generateContinuousRespirationPath(0, widths.resp * 3));
+      }, 150);
+    };
+    
+    window.addEventListener('resize', handleResize);
+
+    // Continuous scrolling - use CSS transforms instead of regenerating paths
+    const scrollSpeed = 60; // pixels per second
+    let lastTime = Date.now();
+    let animationFrameId = null;
+    let isRunning = true;
+    
+    const animationFrame = () => {
+      if (!isRunning) return;
+      
+      const now = Date.now();
+      const deltaTime = (now - lastTime) / 1000; // seconds
+      lastTime = now;
+      
+      const pixelsToMove = scrollSpeed * deltaTime;
+      const widths = containerWidthsRef.current;
+      
+      // Update offsets in ref
+      offsetsRef.current.ecg += pixelsToMove;
+      offsetsRef.current.pleth += pixelsToMove * 1.5;
+      offsetsRef.current.resp += pixelsToMove * 0.8;
+      
+      // Reset offsets when they exceed path length to create seamless loop
+      const ecgPathLength = widths.ecg * 3;
+      const plethPathLength = widths.pleth * 3;
+      const respPathLength = widths.resp * 3;
+      
+      if (offsetsRef.current.ecg > ecgPathLength) {
+        offsetsRef.current.ecg -= ecgPathLength;
+      }
+      if (offsetsRef.current.pleth > plethPathLength) {
+        offsetsRef.current.pleth -= plethPathLength;
+      }
+      if (offsetsRef.current.resp > respPathLength) {
+        offsetsRef.current.resp -= respPathLength;
+      }
+      
+      // Only update offset state (CSS will handle the transform)
+      setEcgOffset(offsetsRef.current.ecg);
+      setPlethOffset(offsetsRef.current.pleth);
+      setRespirationOffset(offsetsRef.current.resp);
+      
+      animationFrameId = requestAnimationFrame(animationFrame);
+    };
+
+    animationFrameId = requestAnimationFrame(animationFrame);
+
+    // Update vital signs continuously (realistic variation)
+    const vitalSignsInterval = setInterval(() => {
+      setHeartRate(prev => {
+        const change = Math.floor(Math.random() * 5) - 2;
+        return Math.max(72, Math.min(108, prev + change));
+      });
+
+      const spo2Values = [96, 97, 98, 98, 99];
+      setSpo2(spo2Values[Math.floor(Math.random() * spo2Values.length)]);
+
+      setSystolic(prev => {
+        const change = Math.floor(Math.random() * 4) - 2;
+        return Math.max(120, Math.min(135, prev + change));
+      });
+
+      setDiastolic(prev => {
+        const change = Math.floor(Math.random() * 3) - 1;
+        return Math.max(75, Math.min(85, prev + change));
+      });
+
+      setTemperature(prev => {
+        const change = (Math.random() - 0.5) * 0.15;
+        return Math.max(36.5, Math.min(37.2, prev + change));
+      });
+
+      setRespirationRate(prev => {
+        const change = Math.floor(Math.random() * 3) - 1;
+        return Math.max(16, Math.min(20, prev + change));
+      });
+    }, 2500);
+
+    // Subtle flicker animation for numbers
+    const flickerInterval = setInterval(() => {
+      setNumberFlicker(prev => prev === 1 ? 1.02 : 1);
+    }, 300);
+
+    return () => {
+      isRunning = false;
+      clearTimeout(initTimeout);
+      clearTimeout(resizeTimeout);
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      clearInterval(vitalSignsInterval);
+      clearInterval(flickerInterval);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [updateContainerWidths]);
+
   const getHRColor = (hr) => {
-    if (hr >= 100) return '#FF5252'; // Red for high
-    if (hr >= 90) return '#FFD54F';  // Yellow for elevated
-    return '#00E676';                 // Green for normal
+    if (hr >= 100) return '#EF4444'; // Softer red
+    if (hr >= 90) return '#F59E0B'; // Softer yellow/amber
+    return '#E5E7EB'; // Soft white/gray for normal
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-lg bg-[#0a1628]" style={{ border: '1px solid #1e3a5f' }}>
-      {/* Grid lines */}
-      <svg className="absolute inset-0 h-full w-full opacity-15">
+    <div className="relative w-full overflow-hidden rounded-lg" style={{ 
+      background: 'linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 50%, #0d1117 100%)',
+      border: '1px solid rgba(148, 163, 184, 0.2)',
+      boxShadow: 'inset 0 0 100px rgba(0, 0, 0, 0.6), 0 0 40px rgba(59, 130, 246, 0.1)'
+    }}>
+      {/* Subtle grid overlay - more visible */}
+      <svg className="absolute inset-0 h-full w-full opacity-[0.08]">
         <defs>
-          <pattern id="gridSmall" width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#4FC3F7" strokeWidth="0.3" />
-          </pattern>
-          <pattern id="gridLarge" width="50" height="50" patternUnits="userSpaceOnUse">
-            <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#4FC3F7" strokeWidth="0.8" />
+          <pattern id="monitorGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#E5E7EB" strokeWidth="0.8" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#gridSmall)" />
-        <rect width="100%" height="100%" fill="url(#gridLarge)" />
+        <rect width="100%" height="100%" fill="url(#monitorGrid)" />
       </svg>
 
-      {/* ECG Line Animation */}
-      <div className="absolute inset-0 flex items-center">
-        <svg
-          key={pathKey}
-          className="animate-ecg-scroll"
-          viewBox="0 0 500 70"
-          preserveAspectRatio="xMidYMid meet"
-          style={{ width: '200%', height: '85%' }}
-        >
-          <defs>
-            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          {/* ECG waveform with glow effect */}
-          <path
-            d={ecgPath}
-            fill="none"
-            stroke={getHRColor(heartRate)}
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            filter="url(#glow)"
-          />
-        </svg>
-      </div>
+      <div className="relative p-4 space-y-3">
+        {/* Heart Rate Panel - Top Horizontal */}
+        <div className="relative overflow-hidden" style={{ 
+          background: 'rgba(15, 23, 42, 0.6)',
+          border: '1px solid rgba(229, 231, 235, 0.12)',
+          borderRadius: '10px',
+          padding: '12px 16px',
+          backdropFilter: 'blur(12px)'
+        }}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base" style={{ color: getHRColor(heartRate) }}>♥</span>
+              <span 
+                className="font-mono text-2xl font-bold transition-all duration-200" 
+                style={{ 
+                  color: getHRColor(heartRate),
+                  textShadow: `0 0 12px ${getHRColor(heartRate)}40`,
+                  transform: `scale(${numberFlicker})`,
+                  opacity: numberFlicker === 1 ? 1 : 0.98
+                }}
+              >
+                {heartRate}
+              </span>
+              <span className="text-gray-300 text-xs font-medium tracking-wider uppercase" style={{ fontFamily: 'system-ui, sans-serif' }}>BPM</span>
+            </div>
+          </div>
+          
+          {/* ECG Waveform - Full Width */}
+          <div 
+            ref={ecgContainerRef}
+            data-ecg-container
+            className="relative h-24 overflow-hidden rounded" 
+            style={{ background: 'rgba(0, 0, 0, 0.5)' }}
+          >
+            <svg
+              viewBox="0 0 1000 100"
+              preserveAspectRatio="none"
+              style={{ width: '100%', height: '100%' }}
+            >
+              <defs>
+                <filter id="ecgGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                  <feOffset in="coloredBlur" dx="0" dy="0" result="offsetBlur" />
+                  <feFlood floodColor="#00FF00" floodOpacity="0.6" />
+                  <feComposite in2="offsetBlur" operator="in" />
+                  <feMerge>
+                    <feMergeNode />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <g style={{ transform: `translateX(-${ecgOffset}px)` }}>
+                <path
+                  d={ecgPath}
+                  fill="none"
+                  stroke="#00FF00"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  filter="url(#ecgGlow)"
+                  style={{ 
+                    filter: 'drop-shadow(0 0 8px rgba(0, 255, 0, 0.8)) drop-shadow(0 0 4px rgba(0, 255, 0, 0.6))',
+                    strokeLinecap: 'round',
+                    strokeLinejoin: 'round'
+                  }}
+                />
+              </g>
+            </svg>
+          </div>
+        </div>
 
-      {/* Vital signs overlay */}
-      <div className="absolute bottom-2 left-3 flex items-center gap-4 text-xs font-mono">
-        <span style={{ color: getHRColor(heartRate) }}>♥ {heartRate} BPM</span>
-        <span style={{ color: '#4FC3F7' }}>SpO2 {spo2}%</span>
-        <span style={{ color: '#FFD54F' }}>BP 120/80</span>
-      </div>
+        {/* Middle Row: SpO₂, Blood Pressure, Temperature */}
+        <div className="grid grid-cols-3 gap-4">
+          {/* SpO₂ Panel */}
+          <div className="relative overflow-hidden" style={{ 
+            background: 'rgba(15, 23, 42, 0.6)',
+            border: '1px solid rgba(34, 211, 238, 0.2)',
+            borderRadius: '10px',
+            padding: '12px 14px',
+            backdropFilter: 'blur(12px)'
+          }}>
+            <div className="text-cyan-400 text-xs font-semibold tracking-widest mb-1.5 uppercase" style={{ fontFamily: 'system-ui, sans-serif' }}>SpO₂</div>
+            <div className="flex items-baseline gap-1.5 mb-2">
+              <span 
+                className="font-mono text-2xl font-bold transition-all duration-200" 
+                style={{ 
+                  color: '#22D3EE',
+                  textShadow: '0 0 12px rgba(34, 211, 238, 0.4)',
+                  transform: `scale(${numberFlicker})`,
+                  opacity: numberFlicker === 1 ? 1 : 0.98
+                }}
+              >
+                {spo2}
+              </span>
+              <span className="text-cyan-400 text-base font-medium">%</span>
+            </div>
+            {/* Plethysmograph waveform - Full Width */}
+            <div 
+              ref={plethContainerRef}
+              data-pleth-container
+              className="relative h-16 overflow-hidden rounded" 
+              style={{ background: 'rgba(0, 0, 0, 0.3)' }}
+            >
+              <svg
+                viewBox="0 0 800 100"
+                preserveAspectRatio="none"
+                style={{ width: '100%', height: '100%' }}
+              >
+                <defs>
+                  <filter id="plethGlow">
+                    <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                    <feMerge>
+                      <feMergeNode in="coloredBlur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                <g style={{ transform: `translateX(-${plethOffset}px)` }}>
+                  <path
+                    d={plethPath}
+                    fill="none"
+                    stroke="#22D3EE"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    filter="url(#plethGlow)"
+                    style={{ filter: 'drop-shadow(0 0 4px rgba(34, 211, 238, 0.8))' }}
+                  />
+                </g>
+              </svg>
+            </div>
+          </div>
 
-      {/* Heart rate number display */}
-      <div
-        className="absolute top-2 right-3 font-mono text-lg font-bold transition-all duration-300"
-        style={{ color: getHRColor(heartRate) }}
-      >
-        {heartRate}
+          {/* Blood Pressure Panel */}
+          <div className="relative overflow-hidden" style={{ 
+            background: 'rgba(15, 23, 42, 0.6)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            borderRadius: '10px',
+            padding: '12px 14px',
+            backdropFilter: 'blur(12px)'
+          }}>
+            <div className="text-red-400 text-xs font-semibold tracking-widest mb-1.5 uppercase" style={{ fontFamily: 'system-ui, sans-serif' }}>Blood Pressure</div>
+            <div className="flex items-baseline gap-1.5 mb-1">
+              <span 
+                className="font-mono text-xl font-bold transition-all duration-200" 
+                style={{ 
+                  color: '#EF4444',
+                  textShadow: '0 0 12px rgba(239, 68, 68, 0.5)',
+                  transform: `scale(${numberFlicker})`,
+                  opacity: numberFlicker === 1 ? 1 : 0.98
+                }}
+              >
+                {systolic}
+              </span>
+              <span className="text-red-400 text-base font-medium">/</span>
+              <span 
+                className="font-mono text-xl font-bold transition-all duration-200" 
+                style={{ 
+                  color: '#EF4444',
+                  textShadow: '0 0 12px rgba(239, 68, 68, 0.5)',
+                  transform: `scale(${numberFlicker})`,
+                  opacity: numberFlicker === 1 ? 1 : 0.98
+                }}
+              >
+                {diastolic}
+              </span>
+            </div>
+            <div className="text-red-400/70 text-xs font-mono">mmHg</div>
+          </div>
+
+          {/* Temperature Panel */}
+          <div className="relative overflow-hidden" style={{ 
+            background: 'rgba(15, 23, 42, 0.6)',
+            border: '1px solid rgba(147, 197, 253, 0.2)',
+            borderRadius: '10px',
+            padding: '12px 14px',
+            backdropFilter: 'blur(12px)'
+          }}>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="text-sm">🌡</span>
+              <span className="text-xs font-semibold tracking-widest uppercase text-blue-300" style={{ fontFamily: 'system-ui, sans-serif' }}>Temperature</span>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span 
+                className="font-mono text-2xl font-bold transition-all duration-200" 
+                style={{ 
+                  color: '#93C5FD',
+                  textShadow: '0 0 10px rgba(147, 197, 253, 0.4)',
+                  transform: `scale(${numberFlicker})`,
+                  opacity: numberFlicker === 1 ? 1 : 0.98
+                }}
+              >
+                {temperature.toFixed(1)}
+              </span>
+              <span className="text-blue-300 text-base font-medium">°C</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Respiration Panel - Bottom */}
+        <div className="relative overflow-hidden" style={{ 
+          background: 'rgba(15, 23, 42, 0.6)',
+          border: '1px solid rgba(234, 179, 8, 0.2)',
+          borderRadius: '10px',
+          padding: '12px 16px',
+          backdropFilter: 'blur(12px)'
+        }}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-amber-300 text-xs font-semibold tracking-widest uppercase" style={{ fontFamily: 'system-ui, sans-serif' }}>Respiration</span>
+              <span 
+                className="font-mono text-xl font-bold transition-all duration-200" 
+                style={{ 
+                  color: '#FCD34D',
+                  textShadow: '0 0 12px rgba(252, 211, 77, 0.4)',
+                  transform: `scale(${numberFlicker})`,
+                  opacity: numberFlicker === 1 ? 1 : 0.98
+                }}
+              >
+                {respirationRate}
+              </span>
+              <span className="text-amber-300 text-xs font-medium tracking-wider uppercase">RPM</span>
+            </div>
+          </div>
+          
+          {/* Respiration Waveform - Full Width */}
+          <div 
+            ref={respContainerRef}
+            data-resp-container
+            className="relative h-20 overflow-hidden rounded" 
+            style={{ background: 'rgba(0, 0, 0, 0.3)' }}
+          >
+            <svg
+              viewBox="0 0 1000 100"
+              preserveAspectRatio="none"
+              style={{ width: '100%', height: '100%' }}
+            >
+              <defs>
+                <filter id="respirationGlow">
+                  <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                  <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <g style={{ transform: `translateX(-${respirationOffset}px)` }}>
+                <path
+                  d={respirationPath}
+                  fill="none"
+                  stroke="#FCD34D"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  filter="url(#respirationGlow)"
+                  style={{ filter: 'drop-shadow(0 0 6px rgba(252, 211, 77, 0.9))' }}
+                />
+              </g>
+            </svg>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -245,62 +691,86 @@ export default function Page() {
 
       <main>
         {/* Hero */}
-        <section id="product" className="mx-auto flex max-w-6xl flex-col gap-10 px-6 pt-24 pb-16 md:flex-row md:items-center md:gap-14">
-          <div className="flex-1 space-y-6">
-            <p className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: palette.soft, color: palette.brand }}>
+        <section id="product" className="mx-auto max-w-7xl px-6 pt-24 pb-16">
+          <div className="mb-6">
+            <p className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold mb-4" style={{ backgroundColor: palette.soft, color: palette.brand }}>
               Continuous monitoring · Clear alerts · Reliable records
             </p>
-            <h1 className="text-3xl font-bold leading-tight md:text-4xl" style={{ color: palette.navy }}>
-              Real-time vital monitoring for safer patient care
-            </h1>
-            <p className="text-lg" style={{ color: palette.navy }}>
-              MyMedQL continuously tracks patient vital signs and notifies healthcare staff when readings move outside safe ranges. Live dashboards and clear alerts help teams act quickly, while keeping a reliable record of patient data over time.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/roles" className="rounded-full px-5 py-3 text-sm font-semibold text-white" style={{ backgroundColor: palette.brand }}>Get Started</Link>
-              <button className="rounded-full border px-5 py-3 text-sm font-semibold" style={{ color: palette.brandBright, borderColor: palette.brandBright, backgroundColor: palette.surface }}>Try Live Demo</button>
+          </div>
+          
+          {/* Landscape Layout: Title and Dashboard side by side */}
+          <div className="flex flex-col lg:flex-row gap-8 items-start mb-8">
+            <div className="flex-1 lg:max-w-md">
+              <h1 className="text-3xl font-bold leading-tight mb-4" style={{ color: palette.navy }}>
+                Real-time vital monitoring for safer patient care
+              </h1>
+              <p className="text-lg mb-6" style={{ color: palette.navy }}>
+                MyMedQL continuously tracks patient vital signs and notifies healthcare staff when readings move outside safe ranges. Live dashboards and clear alerts help teams act quickly, while keeping a reliable record of patient data over time.
+              </p>
+              <div className="flex flex-wrap gap-3 mb-6">
+                <Link href="/roles" className="rounded-full px-5 py-3 text-sm font-semibold text-white" style={{ backgroundColor: palette.brand }}>Get Started</Link>
+                <button className="rounded-full border px-5 py-3 text-sm font-semibold" style={{ color: palette.brandBright, borderColor: palette.brandBright, backgroundColor: palette.surface }}>Try Live Demo</button>
+              </div>
+              <div className="flex flex-wrap gap-4 text-xs font-semibold" style={{ color: palette.navy }}>
+                {['Continuous Monitoring', 'Early Warning Alerts', 'Staff & Patient Access', 'Privacy-focused Design'].map((chip) => (
+                  <span key={chip} className="rounded-full px-3 py-1" style={{ backgroundColor: palette.surface, border: `1px solid ${palette.border}` }}>{chip}</span>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-4 text-xs font-semibold" style={{ color: palette.navy }}>
-              {['Continuous Monitoring', 'Early Warning Alerts', 'Staff & Patient Access', 'Privacy-focused Design'].map((chip) => (
-                <span key={chip} className="rounded-full px-3 py-1" style={{ backgroundColor: palette.surface, border: `1px solid ${palette.border}` }}>{chip}</span>
-              ))}
+            
+            {/* Dashboard - Landscape Mode */}
+            <div className="flex-1 lg:flex-[1.5] w-full">
+              <div className="rounded-2xl overflow-hidden shadow-2xl" style={{ 
+                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f1419 100%)',
+                border: '2px solid rgba(79, 195, 247, 0.3)',
+                boxShadow: '0 0 60px rgba(79, 195, 247, 0.2), inset 0 0 60px rgba(0, 0, 0, 0.5)'
+              }}>
+                <div className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-white font-semibold text-base tracking-wider">PATIENT MONITORING DASHBOARD</div>
+                    <span className="rounded-full px-3 py-1 text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30" style={{ textShadow: '0 0 8px rgba(76, 175, 80, 0.5)' }}>● LIVE</span>
+                  </div>
+                  <MedicalMonitoringDashboard />
+                </div>
+                <div className="mt-6 space-y-3 p-5" style={{ background: 'rgba(15, 23, 42, 0.4)' }}>
+                <div className="flex items-center justify-between rounded-lg px-4 py-3 text-sm" style={{ 
+                  background: 'rgba(34, 211, 238, 0.08)', 
+                  border: '1px solid rgba(34, 211, 238, 0.15)' 
+                }}>
+                  <div className="flex items-center gap-3">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" style={{ boxShadow: '0 0 8px rgba(52, 211, 153, 0.6)' }} />
+                    <span className="font-semibold text-gray-100" style={{ fontFamily: 'system-ui, sans-serif' }}>Patient 104</span>
+                    <span className="text-xs text-cyan-300/80 font-mono">HR 96 · SpO₂ 97%</span>
+                  </div>
+                  <button className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-colors px-3 py-1.5 rounded-md hover:bg-cyan-400/10">View</button>
+                </div>
+                <div className="flex items-center justify-between rounded-lg px-4 py-3 text-sm" style={{ 
+                  background: 'rgba(239, 68, 68, 0.12)', 
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  boxShadow: '0 0 20px rgba(239, 68, 68, 0.1)'
+                }}>
+                  <div className="flex items-center gap-3">
+                    <span className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" style={{ boxShadow: '0 0 10px rgba(239, 68, 68, 0.7)' }} />
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-red-400" style={{ fontFamily: 'system-ui, sans-serif' }}>Alert · Tachycardia</span>
+                      <span className="text-xs text-red-300/80 font-mono mt-0.5">HR 128 at 14:03</span>
+                    </div>
+                  </div>
+                  <button 
+                    className="rounded-full px-5 py-2 text-xs font-semibold text-white bg-red-500/90 hover:bg-red-500 border border-red-400/50 transition-all duration-200 shadow-lg hover:shadow-red-500/30 hover:scale-105 active:scale-95" 
+                    style={{ 
+                      fontFamily: 'system-ui, sans-serif',
+                      boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                    }}
+                  >
+                    Acknowledge
+                  </button>
+                </div>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex-1">
-            <div className={`${sectionCard} p-6`} style={{ borderColor: palette.border }}>
-              <div className="flex items-center justify-between">
-                <div className="font-semibold" style={{ color: palette.navy }}>Live Dashboard</div>
-                <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: "#E8F5E9", color: palette.success }}>Online</span>
-              </div>
-              <div className="mt-4 h-40 rounded-xl p-3 text-xs" style={{ background: `linear-gradient(135deg, ${palette.light}, ${palette.surface})`, color: palette.navy, border: `1px solid ${palette.border}` }}>
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="font-semibold" style={{ color: palette.navy }}>HR / SpO2 / BP</span>
-                  <span className="font-semibold" style={{ color: palette.brandBright }}>Live</span>
-                </div>
-                <EcgWaveform />
-              </div>
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center justify-between rounded-lg border bg-white px-3 py-2 text-sm" style={{ borderColor: palette.border }}>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: palette.success }} />
-                    <span className="font-semibold" style={{ color: palette.navy }}>Patient 104</span>
-                    <span className="text-xs" style={{ color: palette.navy }}>HR 96 · SpO2 97%</span>
-                  </div>
-                  <button className="text-xs font-semibold" style={{ color: palette.brandBright }}>View</button>
-                </div>
-                <div className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm" style={{ borderColor: palette.border, backgroundColor: "#FFF5F5" }}>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: palette.danger }} />
-                    <span className="font-semibold" style={{ color: "#C62828" }}>Alert · Tachycardia</span>
-                    <span className="text-xs" style={{ color: "#C62828" }}>HR 128 at 14:03</span>
-                  </div>
-                  <button className="rounded-full bg-white px-2 py-1 text-xs font-semibold" style={{ color: "#C62828", border: `1px solid ${palette.border}` }}>Acknowledge</button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </section >
+        </section>
 
         {/* Value Props */}
         < section id="features" className="py-14" style={{ backgroundColor: palette.surface }

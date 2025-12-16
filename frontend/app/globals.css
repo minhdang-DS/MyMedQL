@@ -17,3 +17,37 @@ body {
 button {
   cursor: pointer;
 }
+
+/* ECG Animation */
+@keyframes ecg-scroll {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-ecg-scroll {
+  animation: ecg-scroll 4s linear infinite;
+}
+
+/* Marquee Animation */
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-scroll {
+  animation: scroll 20s linear infinite;
+}
+
+.pause-on-hover:hover {
+  animation-play-state: paused;
+}

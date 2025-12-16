@@ -16,7 +16,7 @@ const roles = [
     title: "Staff",
     href: "/roles/staff",
     badge: "Clinician / Admin",
-    desc: "Access patient lists, live vitals dashboards, alerts, and threshold controls.",
+    desc: "Monitor patients in real time, review vital signs, receive alerts, and manage care thresholds.",
     highlights: ["Patient list & device assignments", "Live alerts with acknowledge", "Threshold & scenario controls"]
   },
   {
@@ -35,7 +35,7 @@ export default function RoleSelectPage() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold" style={{ color: palette.brandBright }}>Choose your role</p>
-            <h1 className="mt-2 text-3xl font-bold" style={{ color: palette.navy }}>Who is using MyMedQL today?</h1>
+            <h1 className="mt-2 text-3xl font-bold" style={{ color: palette.navy }}>Who are you using MyMedQL as?</h1>
             <p className="mt-2 text-sm" style={{ color: palette.navy }}>Pick a role to enter a tailored experience.</p>
           </div>
           <Link href="/" className="text-sm font-semibold" style={{ color: palette.brandBright }}>Back to home</Link>

@@ -7,6 +7,8 @@ from app.db.base_class import Base
 
 
 class Alert(Base):
+    __tablename__ = "alerts"
+    
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     patient_id: Mapped[str] = mapped_column(ForeignKey("patient.patient_id"), index=True)
     severity: Mapped[str] = mapped_column(String(16))

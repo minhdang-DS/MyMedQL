@@ -5,6 +5,7 @@ from app.db.base_class import Base
 
 
 class Threshold(Base):
+    __tablename__ = "thresholds"
     __table_args__ = (UniqueConstraint("patient_id", name="uq_threshold_patient"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

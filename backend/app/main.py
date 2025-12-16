@@ -2,10 +2,12 @@ import os
 import logging
 
 from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.api.dependencies import get_connection_manager
 from app.api.routers import api_router
+from app.core.config import settings
 from app.db import base  # noqa: F401  # ensures models are imported
 from app.db.base import Base
 from app.db.session import engine
@@ -13,6 +15,17 @@ from app.db.session import engine
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="MyMedQL Backend", version="1.0")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include API routes
 app.include_router(api_router)
 
 
@@ -23,6 +36,7 @@ async def on_startup():
         return
     try:
         await create_tables(engine)
+        logger.info("Database tables created successfully")
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("DB init skipped due to error: %s", exc)
 
@@ -34,7 +48,7 @@ async def create_tables(db_engine: AsyncEngine):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "service": "MyMedQL Backend"}
 
 
 @app.websocket("/ws")
@@ -47,46 +61,6 @@ async def websocket_endpoint(
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-from app.api.routers import auth, health, patients, vitals
-from app.core.config import settings
-from app.websockets.connection_manager import connection_manager
-
-
-def create_app() -> FastAPI:
-    app = FastAPI(title="MyMedQL API", version="0.1.0")
-
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-    api_prefix = "/api/v1"
-    app.include_router(auth.router, prefix=api_prefix, tags=["auth"])
-    app.include_router(patients.router, prefix=api_prefix, tags=["patients"])
-    app.include_router(vitals.router, prefix=api_prefix, tags=["vitals"])
-    app.include_router(health.router, prefix="", tags=["health"])
-
-    @app.websocket("/ws")
-    async def websocket_endpoint(websocket):
-        await connection_manager.connect(websocket)
-        try:
-            while True:
-                await websocket.receive_text()
-        except Exception:
-            pass
-        finally:
-            await connection_manager.disconnect(websocket)
-
-    return app
-
-
-app = create_app()
 
 
 

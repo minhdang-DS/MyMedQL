@@ -108,23 +108,6 @@ class VitalService:
 
         for message in [*vital_payload, *alert_payload]:
             await connection_manager.broadcast(message)
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.vital import Vital
-from app.schemas.vital_schema import VitalCreate
-from app.websockets.connection_manager import connection_manager
-
-
-async def record_vital(db: AsyncSession, payload: VitalCreate) -> Vital:
-    vital = Vital(**payload.model_dump())
-    db.add(vital)
-    await db.commit()
-    await db.refresh(vital)
-
-    await connection_manager.broadcast_json(
-        {"type": "vital_update", "patient_id": vital.patient_id, "payload": payload.model_dump()}
-    )
-    return vital
 
 
 

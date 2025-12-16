@@ -8,9 +8,6 @@ api_router.include_router(patients.router, prefix="/patients", tags=["patients"]
 api_router.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
 
 __all__ = ["api_router"]
-from . import auth, patients, vitals, health
-
-__all__ = ["auth", "patients", "vitals", "health"]
 
 
 

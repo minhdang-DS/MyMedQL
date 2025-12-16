@@ -51,37 +51,6 @@ async def get_patient_history(
     stmt = stmt.order_by(Vital.timestamp.asc())
     vitals = (await session.execute(stmt)).scalars().all()
     return vitals
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.api import dependencies
-from app.schemas.patient_schema import PatientCreate, PatientRead
-from app.services.patient_service import create_patient, get_patient
-
-
-router = APIRouter()
-
-
-@router.post("/patients", response_model=PatientRead, status_code=status.HTTP_201_CREATED)
-async def create_patient_endpoint(
-    payload: PatientCreate,
-    db: AsyncSession = Depends(dependencies.get_db),
-    current_user: dict = Depends(dependencies.get_current_user),
-) -> PatientRead:
-    patient = await create_patient(db, payload)
-    return patient
-
-
-@router.get("/patients/{patient_id}", response_model=PatientRead)
-async def get_patient_endpoint(
-    patient_id: int,
-    db: AsyncSession = Depends(dependencies.get_db),
-    current_user: dict = Depends(dependencies.get_current_user),
-) -> PatientRead:
-    patient = await get_patient(db, patient_id)
-    if not patient:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
-    return patient
 
 
 

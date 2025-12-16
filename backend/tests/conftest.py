@@ -1,8 +1,8 @@
-import asyncio
 import os
 from collections.abc import AsyncGenerator
 
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -16,6 +16,8 @@ from app.main import app
 from app.models.patient import Patient
 from app.models.threshold import Threshold
 
+# Use strict asyncio mode for pytest-asyncio
+pytest_plugins = ('pytest_asyncio',)
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 os.environ.setdefault("SKIP_DB_INIT", "1")
@@ -25,31 +27,30 @@ TestingSessionLocal = async_sessionmaker(
 )
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(scope="session", autouse=True)
 async def prepare_database():
+    """Create database tables before tests."""
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
     await test_engine.dispose()
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture
 async def session() -> AsyncGenerator[AsyncSession, None]:
-    async with TestingSessionLocal() as session:
-        yield session
+    """Async session fixture for tests."""
+    async with TestingSessionLocal() as test_session:
+        yield test_session
+        # Rollback any uncommitted changes
+        await test_session.rollback()
 
 
 @pytest.fixture(autouse=True)
-def override_dependencies(session: AsyncSession):
+def setup_dependencies():
+    """Override app dependencies with test fixtures."""
     async def _get_session_override():
-        yield session
+        async with TestingSessionLocal() as test_session:
+            yield test_session
 
     app.dependency_overrides[get_db] = _get_session_override
     app.dependency_overrides[get_connection_manager] = lambda: connection_manager
@@ -59,16 +60,22 @@ def override_dependencies(session: AsyncSession):
     connection_manager.active_connections.clear()
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture
 async def seeded_patient(session: AsyncSession) -> Patient:
-    patient = Patient(patient_id="patient-1", name="Test Patient")
+    """Create a test patient with thresholds. Uses unique ID per test invocation."""
+    import uuid
+    unique_id = f"patient-{uuid.uuid4().hex[:8]}"
+    
+    patient = Patient(patient_id=unique_id, name="Test Patient")
     threshold = Threshold(patient_id=patient.patient_id, hr_max=120, spo2_min=92.0)
     session.add_all([patient, threshold])
     await session.commit()
+    # Don't refresh - patient object is already attached and usable
     return patient
 
 
-@pytest.fixture()
+@pytest.fixture
 def client():
+    """Test client fixture."""
     return TestClient(app)
 

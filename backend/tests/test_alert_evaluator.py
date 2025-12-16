@@ -10,9 +10,12 @@ from app.services.alert_evaluator import AlertEvaluator
 
 @pytest.mark.asyncio
 async def test_alert_evaluator_returns_critical(session: AsyncSession):
-    threshold = Threshold(patient_id="p1", hr_max=120, spo2_min=92)
+    import uuid
+    patient_id = f"p-{uuid.uuid4().hex[:8]}"
+    
+    threshold = Threshold(patient_id=patient_id, hr_max=120, spo2_min=92)
     vital = Vital(
-        patient_id="p1",
+        patient_id=patient_id,
         sensor_id="s1",
         timestamp=datetime.now(timezone.utc),
         heart_rate=150,
@@ -32,9 +35,12 @@ async def test_alert_evaluator_returns_critical(session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_alert_evaluator_no_alert_when_normal(session: AsyncSession):
-    threshold = Threshold(patient_id="p1", hr_max=120, spo2_min=92)
+    import uuid
+    patient_id = f"p-{uuid.uuid4().hex[:8]}"
+    
+    threshold = Threshold(patient_id=patient_id, hr_max=120, spo2_min=92)
     vital = Vital(
-        patient_id="p1",
+        patient_id=patient_id,
         sensor_id="s1",
         timestamp=datetime.now(timezone.utc),
         heart_rate=80,

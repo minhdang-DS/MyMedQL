@@ -58,17 +58,6 @@ class AlertEvaluator:
         session.add(alert)
         await session.flush()
         return alert
-from app.schemas.vital_schema import VitalCreate
-
-
-def evaluate_vital(payload: VitalCreate) -> list[str]:
-    """Very small placeholder for threshold checks."""
-    alerts: list[str] = []
-    if payload.spo2 is not None and payload.spo2 < 90:
-        alerts.append("Low SpO2")
-    if payload.heart_rate < 40 or payload.heart_rate > 150:
-        alerts.append("Abnormal heart rate")
-    return alerts
 
 
 

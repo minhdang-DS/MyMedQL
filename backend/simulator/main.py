@@ -3,6 +3,8 @@ Simulator main script - integrates with BE2's generator to insert vital signs da
 """
 import sys
 import time
+import argparse
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -65,23 +67,69 @@ except ImportError:
 def main():
     """
     Main simulator loop - generates and inserts vital signs for multiple patients
+    Supports load testing with configurable insert rate.
     """
-    # Default: 5 patients, starting from patient_id 1
-    # In production, you might query the database for actual patient IDs
-    num_patients = 5
-    start_patient_id = 1
+    parser = argparse.ArgumentParser(description="MyMedQL Vital Signs Simulator")
+    parser.add_argument(
+        "--rate",
+        type=float,
+        default=5.0,
+        help="Target insert rate (inserts per second). Default: 5.0"
+    )
+    parser.add_argument(
+        "--patients",
+        type=int,
+        default=5,
+        help="Number of patients to simulate. Default: 5"
+    )
+    parser.add_argument(
+        "--start-id",
+        type=int,
+        default=1,
+        help="Starting patient ID. Default: 1"
+    )
+    parser.add_argument(
+        "--duration",
+        type=int,
+        default=0,
+        help="Duration in seconds (0 = run indefinitely). Default: 0"
+    )
     
-    print(f"🚀 Starting simulator for {num_patients} patients...")
-    print(f"   Patient IDs: {start_patient_id} to {start_patient_id + num_patients - 1}")
+    args = parser.parse_args()
+    
+    num_patients = args.patients
+    start_patient_id = args.start_id
+    target_rate = args.rate
+    duration = args.duration
+    
+    print(f"🚀 Starting simulator...")
+    print(f"   Patients: {num_patients} (IDs: {start_patient_id} to {start_patient_id + num_patients - 1})")
+    print(f"   Target rate: {target_rate} inserts/sec")
+    if duration > 0:
+        print(f"   Duration: {duration} seconds")
+    else:
+        print(f"   Duration: indefinite (Ctrl+C to stop)")
     
     # Create PatientVitalState instances for each patient
     patients = [PatientVitalState(patient_id) for patient_id in range(start_patient_id, start_patient_id + num_patients)]
     
     insert_count = 0
     start_time = time.time()
+    end_time = start_time + duration if duration > 0 else None
+    
+    # Calculate interval between inserts to achieve target rate
+    # If we have N patients, each batch is N inserts
+    inserts_per_batch = num_patients
+    interval = inserts_per_batch / target_rate if target_rate > 0 else 1.0
     
     try:
         while True:
+            # Check if duration limit reached
+            if end_time and time.time() >= end_time:
+                break
+            
+            batch_start = time.time()
+            
             # Generate vital signs for all patients
             vital_data_list = []
             for patient in patients:
@@ -96,17 +144,26 @@ def main():
             if insert_count % 10 == 0:
                 elapsed = time.time() - start_time
                 rate = insert_count / elapsed if elapsed > 0 else 0
-                print(f"📊 Progress: {insert_count} records inserted | Rate: {rate:.2f} inserts/sec")
+                print(f"📊 Progress: {insert_count} records inserted | Rate: {rate:.2f} inserts/sec (target: {target_rate:.2f})")
             
-            # Wait 1 second before next batch
-            time.sleep(1)
+            # Sleep to maintain target rate
+            batch_elapsed = time.time() - batch_start
+            sleep_time = max(0, interval - batch_elapsed)
+            if sleep_time > 0:
+                time.sleep(sleep_time)
             
     except KeyboardInterrupt:
-        elapsed = time.time() - start_time
-        rate = insert_count / elapsed if elapsed > 0 else 0
-        print(f"\n🛑 Simulator stopped by user")
-        print(f"📊 Total: {insert_count} records inserted in {elapsed:.2f} seconds")
-        print(f"📊 Average rate: {rate:.2f} inserts/sec")
+        pass
+    
+    # Final statistics
+    elapsed = time.time() - start_time
+    rate = insert_count / elapsed if elapsed > 0 else 0
+    print(f"\n🛑 Simulator stopped")
+    print(f"📊 Total: {insert_count} records inserted in {elapsed:.2f} seconds")
+    print(f"📊 Average rate: {rate:.2f} inserts/sec (target: {target_rate:.2f})")
+    if target_rate > 0:
+        efficiency = (rate / target_rate * 100) if target_rate > 0 else 0
+        print(f"📊 Efficiency: {efficiency:.1f}% of target rate")
 
 
 if __name__ == "__main__":

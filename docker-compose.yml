@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   # MySQL Database Service
   db:
@@ -16,9 +14,12 @@ services:
     volumes:
       # Persist database data
       - mysql_data:/var/lib/mysql
-      # Mount SQL initialization scripts
-      - ./sql/ddl:/docker-entrypoint-initdb.d/ddl
-      - ./sql/seed:/docker-entrypoint-initdb.d/seed
+      # Mount initialization script (runs first)
+      - ./docker/init:/docker-entrypoint-initdb.d/00_init
+      # Mount SQL DDL files (runs second, in alphabetical order)
+      - ./sql/ddl:/docker-entrypoint-initdb.d/01_ddl
+      # Mount SQL seed files (runs last, in alphabetical order)
+      - ./sql/seed:/docker-entrypoint-initdb.d/02_seed
     ports:
       - "3307:3306"  # Changed host port to 3307 to avoid conflict
     networks:

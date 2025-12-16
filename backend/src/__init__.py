@@ -1,2 +1,0 @@
-# MyMedQL Backend Package
-

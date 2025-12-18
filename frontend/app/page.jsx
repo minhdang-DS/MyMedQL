@@ -1,31 +1,89 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo, lazy, Suspense } from "react";
 import Link from "next/link";
 
+// Custom hook for scroll animations - optimized
+function useScrollAnimation() {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef(null);
+  const observerRef = useRef(null);
+
+  useEffect(() => {
+    // Only create observer once
+    if (!observerRef.current) {
+      observerRef.current = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) { 
+            setIsVisible(true);
+            // Unobserve after animation triggers to prevent re-triggering
+            if (observerRef.current && ref.current) {
+              observerRef.current.unobserve(ref.current);
+            }
+          }
+        },
+        {
+          threshold: 0.1,
+          rootMargin: '0px 0px -50px 0px'
+        }
+      );
+    }
+
+    const currentRef = ref.current;
+    const currentObserver = observerRef.current;
+
+    if (currentRef && currentObserver) {
+      currentObserver.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef && currentObserver) {
+        currentObserver.unobserve(currentRef);
+      }
+    };
+  }, []);
+
+  return [ref, isVisible];
+}
+
+// Animated Section Component - memoized for performance
+const AnimatedSection = memo(function AnimatedSection({ children, className = "", delay = 0 }) {
+  const [ref, isVisible] = useScrollAnimation();
+
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? 'translateY(0)' : 'translateY(30px)',
+        transition: `opacity 0.6s ease-out ${delay}s, transform 0.6s ease-out ${delay}s`
+      }}
+    >
+      {children}
+    </div>
+  );
+});
+
 // Clean, Professional Medical Patient Monitoring Dashboard
-function MedicalMonitoringDashboard() {
+// Memoized to prevent unnecessary re-renders
+const MedicalMonitoringDashboard = memo(function MedicalMonitoringDashboard() {
   const [heartRate, setHeartRate] = useState(88);
-  const [spo2, setSpo2] = useState(98);
-  const [systolic, setSystolic] = useState(128);
-  const [diastolic, setDiastolic] = useState(82);
-  const [temperature, setTemperature] = useState(36.8);
   const [respirationRate, setRespirationRate] = useState(18);
   const [ecgPath, setEcgPath] = useState('');
-  const [plethPath, setPlethPath] = useState('');
   const [respirationPath, setRespirationPath] = useState('');
-  const [sweepPosition, setSweepPosition] = useState({ ecg: 0, pleth: 0, resp: 0 });
+  const [sweepPosition, setSweepPosition] = useState({ ecg: 0, resp: 0 });
   const [numberFlicker, setNumberFlicker] = useState(1);
   
   // Use refs to avoid DOM queries on every frame
   const ecgContainerRef = useRef(null);
-  const plethContainerRef = useRef(null);
   const respContainerRef = useRef(null);
-  const containerWidthsRef = useRef({ ecg: 600, pleth: 400, resp: 600 });
-  const sweepPositionsRef = useRef({ ecg: 0, pleth: 0, resp: 0 });
-  const lastRegenPositionsRef = useRef({ ecg: 0, pleth: 0, resp: 0 });
+  const containerWidthsRef = useRef({ ecg: 600, resp: 600 });
+  const sweepPositionsRef = useRef({ ecg: 0, resp: 0 });
+  const lastRegenPositionsRef = useRef({ ecg: 0, resp: 0 });
 
   // Generate full-width ECG waveform - always visible across entire panel
-  const generateContinuousEcgPath = () => {
+  // Memoized with useCallback to prevent recreation on every render
+  const generateContinuousEcgPath = useCallback(() => {
     const baseY = 50;
     // Use fixed viewBox width (1000) to ensure full panel coverage
     const viewWidth = 1000;
@@ -106,75 +164,17 @@ function MedicalMonitoringDashboard() {
       path += ` L${endX},${baseY}`;
     }
     
-    return path;
-  };
-
-  // Generate full-width plethysmograph waveform - always visible across entire panel
-  const generateContinuousPlethPath = () => {
-    const baseY = 70;
-    // Vary base height significantly for each regeneration (70-120 range)
-    const baseHeight = 70 + Math.random() * 50;
-    // Use fixed viewBox width (800) to ensure full panel coverage
-    const viewWidth = 800;
-    // Vary base pulse interval significantly (12-25 range)
-    const basePulseInterval = 12 + Math.random() * 13;
-    let path = '';
-    let currentX = 0; // Start from left edge
-    
-    // Generate enough pulses to fill entire viewport width
-    const endX = viewWidth;
-    
-    // Start path
-    path += `M${currentX},${baseY}`;
-    
-    // Generate pulses until we've covered enough width
-    while (currentX < endX) {
-      // Vary pulse width significantly for each pulse
-      const pulseWidth = basePulseInterval + (Math.random() - 0.5) * 8;
-      // Vary pulse height with larger range
-      const pulseHeight = baseHeight * (0.70 + Math.random() * 0.30);
-      const variation = Math.random() * 10; // Increased variation
-      
-      // Vary the shape characteristics for each pulse
-      const riseSpeed = 0.12 + Math.random() * 0.08; // Vary how fast it rises
-      const peakTiming = 0.48 + Math.random() * 0.06; // Vary peak position
-      const notchPosition = 0.54 + Math.random() * 0.08; // Vary notch position
-      
-      // Rising edge - more pronounced with variation
-      path += ` L${currentX + pulseWidth * (riseSpeed + 0.03)},${baseY - pulseHeight * (0.20 + Math.random() * 0.10)}`;
-      path += ` L${currentX + pulseWidth * (riseSpeed * 2 + 0.05)},${baseY - pulseHeight * (0.50 + Math.random() * 0.15)}`;
-      path += ` L${currentX + pulseWidth * (riseSpeed * 3 + 0.08)},${baseY - pulseHeight * (0.75 + Math.random() * 0.15)}`;
-      path += ` L${currentX + pulseWidth * peakTiming},${baseY - pulseHeight + variation}`;
-      
-      // Peak - sharper with variation
-      path += ` L${currentX + pulseWidth * (peakTiming + 0.02 + Math.random() * 0.02)},${baseY - pulseHeight + variation * (0.6 + Math.random() * 0.2)}`;
-      
-      // Dicrotic notch - more pronounced and visible with variation
-      const notchDepth = 5 + Math.random() * 8;
-      path += ` L${currentX + pulseWidth * (notchPosition - 0.02)},${baseY - pulseHeight * (0.70 + Math.random() * 0.15)}`;
-      path += ` L${currentX + pulseWidth * notchPosition},${baseY - pulseHeight * (0.60 + Math.random() * 0.10) + notchDepth}`;
-      path += ` L${currentX + pulseWidth * (notchPosition + 0.05 + Math.random() * 0.05)},${baseY - pulseHeight * (0.55 + Math.random() * 0.10)}`;
-      
-      // Falling edge - smoother descent with variation
-      const fallSpeed = 0.70 + Math.random() * 0.15;
-      path += ` L${currentX + pulseWidth * fallSpeed},${baseY - pulseHeight * (0.35 + Math.random() * 0.10)}`;
-      path += ` L${currentX + pulseWidth * (fallSpeed + 0.10 + Math.random() * 0.05)},${baseY - pulseHeight * (0.15 + Math.random() * 0.10)}`;
-      path += ` L${currentX + pulseWidth * (fallSpeed + 0.20 + Math.random() * 0.05)},${baseY - pulseHeight * (0.03 + Math.random() * 0.05)}`;
-      path += ` L${currentX + pulseWidth},${baseY}`;
-
-      currentX += pulseWidth;
-    }
-    
     // Ensure path extends to full width
     if (currentX < endX) {
       path += ` L${endX},${baseY}`;
     }
     
     return path;
-  };
+  }, []);
 
   // Generate full-width respiration waveform - always visible across entire panel
-  const generateContinuousRespirationPath = () => {
+  // Memoized with useCallback to prevent recreation on every render
+  const generateContinuousRespirationPath = useCallback(() => {
     const baseY = 50;
     // Use fixed viewBox width (1000) to ensure full panel coverage
     const viewWidth = 1000;
@@ -224,7 +224,20 @@ function MedicalMonitoringDashboard() {
     }
     
     return path;
-  };
+  }, []);
+
+  // Helper function to update vital signs
+  const updateVitalSigns = useCallback(() => {
+    setHeartRate(prev => {
+      const change = Math.floor(Math.random() * 5) - 2;
+      return Math.max(72, Math.min(108, prev + change));
+    });
+
+    setRespirationRate(prev => {
+      const change = Math.floor(Math.random() * 3) - 1;
+      return Math.max(16, Math.min(20, prev + change));
+    });
+  }, []);
 
   // Helper function to update vital signs
   const updateVitalSigns = useCallback(() => {
@@ -262,30 +275,25 @@ function MedicalMonitoringDashboard() {
     if (ecgContainerRef.current) {
       containerWidthsRef.current.ecg = ecgContainerRef.current.offsetWidth || 600;
     }
-    if (plethContainerRef.current) {
-      containerWidthsRef.current.pleth = plethContainerRef.current.offsetWidth || 400;
-    }
     if (respContainerRef.current) {
       containerWidthsRef.current.resp = respContainerRef.current.offsetWidth || 600;
     }
   }, []);
 
   useEffect(() => {
-    // Initialize paths - wait for DOM to be ready
+    // Generate paths immediately - don't wait for DOM
+    const baseEcgPath = generateContinuousEcgPath();
+    const baseRespirationPath = generateContinuousRespirationPath();
+    
+    setEcgPath(baseEcgPath);
+    setRespirationPath(baseRespirationPath);
+    
+    // Initialize container widths after a brief delay to ensure DOM is ready
     const initTimeout = setTimeout(() => {
       updateContainerWidths();
-      
-      // Generate full-width paths that fill the entire viewBox (fixed widths)
-      const baseEcgPath = generateContinuousEcgPath();
-      const basePlethPath = generateContinuousPlethPath();
-      const baseRespirationPath = generateContinuousRespirationPath();
-      
-      setEcgPath(baseEcgPath);
-      setPlethPath(basePlethPath);
-      setRespirationPath(baseRespirationPath);
     }, 0);
     
-    // Update on resize (debounced)
+    // Update on resize (debounced) - increased debounce time for better performance
     let resizeTimeout;
     const handleResize = () => {
       clearTimeout(resizeTimeout);
@@ -293,23 +301,24 @@ function MedicalMonitoringDashboard() {
         updateContainerWidths();
         // Regenerate paths on resize (using fixed viewBox widths)
         setEcgPath(generateContinuousEcgPath());
-        setPlethPath(generateContinuousPlethPath());
         setRespirationPath(generateContinuousRespirationPath());
-      }, 150);
+      }, 250); // Increased from 150ms to 250ms
     };
     
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize, { passive: true });
 
     // Sweep animation - moving erase spot from left to right
     const sweepSpeed = 100; // pixels per second (adjust for sweep speed)
-    const regenInterval = 80; // Regenerate waveform every N pixels as sweep moves
+    const regenInterval = 100; // Increased from 80 to reduce regeneration frequency
     let lastTime = Date.now();
     let animationFrameId = null;
     let isRunning = true;
+    let frameCount = 0; // Batch state updates
     
     const animationFrame = () => {
       if (!isRunning) return;
       
+      frameCount++;
       const now = Date.now();
       const deltaTime = (now - lastTime) / 1000; // seconds
       lastTime = now;
@@ -319,7 +328,6 @@ function MedicalMonitoringDashboard() {
       
       // Update sweep positions (moving left to right)
       sweepPositionsRef.current.ecg += pixelsToMove;
-      sweepPositionsRef.current.pleth += pixelsToMove * 1.2;
       sweepPositionsRef.current.resp += pixelsToMove * 0.9;
       
       // Regenerate waveforms continuously as sweep moves (not just on reset)
@@ -327,12 +335,6 @@ function MedicalMonitoringDashboard() {
       if (sweepPositionsRef.current.ecg - lastRegenPositionsRef.current.ecg >= regenInterval) {
         setEcgPath(generateContinuousEcgPath());
         lastRegenPositionsRef.current.ecg = sweepPositionsRef.current.ecg;
-      }
-      
-      // Pleth: regenerate every regenInterval pixels
-      if (sweepPositionsRef.current.pleth - lastRegenPositionsRef.current.pleth >= regenInterval) {
-        setPlethPath(generateContinuousPlethPath());
-        lastRegenPositionsRef.current.pleth = sweepPositionsRef.current.pleth;
       }
       
       // Respiration: regenerate every regenInterval pixels
@@ -350,13 +352,6 @@ function MedicalMonitoringDashboard() {
         // Update vital signs when sweep resets
         updateVitalSigns();
       }
-      if (sweepPositionsRef.current.pleth > widths.pleth) {
-        sweepPositionsRef.current.pleth = 0;
-        lastRegenPositionsRef.current.pleth = 0;
-        setPlethPath(generateContinuousPlethPath());
-        // Update vital signs when sweep resets
-        updateVitalSigns();
-      }
       if (sweepPositionsRef.current.resp > widths.resp) {
         sweepPositionsRef.current.resp = 0;
         lastRegenPositionsRef.current.resp = 0;
@@ -365,27 +360,28 @@ function MedicalMonitoringDashboard() {
         updateVitalSigns();
       }
       
-      // Update sweep position state
-      setSweepPosition({
-        ecg: sweepPositionsRef.current.ecg,
-        pleth: sweepPositionsRef.current.pleth,
-        resp: sweepPositionsRef.current.resp
-      });
+      // Batch state updates - only update every 2 frames to reduce re-renders
+      if (frameCount % 2 === 0) {
+        setSweepPosition({
+          ecg: sweepPositionsRef.current.ecg,
+          resp: sweepPositionsRef.current.resp
+        });
+      }
       
       animationFrameId = requestAnimationFrame(animationFrame);
     };
 
     animationFrameId = requestAnimationFrame(animationFrame);
 
-    // Update vital signs continuously (realistic variation)
+    // Update vital signs continuously (realistic variation) - increased interval
     const vitalSignsInterval = setInterval(() => {
       updateVitalSigns();
-    }, 2500);
+    }, 3000); // Increased from 2500ms to 3000ms
 
-    // Subtle flicker animation for numbers
+    // Subtle flicker animation for numbers - increased interval
     const flickerInterval = setInterval(() => {
       setNumberFlicker(prev => prev === 1 ? 1.02 : 1);
-    }, 300);
+    }, 400); // Increased from 300ms to 400ms
 
     return () => {
       isRunning = false;
@@ -398,7 +394,7 @@ function MedicalMonitoringDashboard() {
       clearInterval(flickerInterval);
       window.removeEventListener('resize', handleResize);
     };
-  }, [updateContainerWidths, updateVitalSigns]);
+  }, [updateContainerWidths, updateVitalSigns, generateContinuousEcgPath, generateContinuousRespirationPath]);
 
   const getHRColor = (hr) => {
     if (hr >= 100) return '#FF6B6B'; // Red for critical alerts
@@ -422,354 +418,202 @@ function MedicalMonitoringDashboard() {
         <rect width="100%" height="100%" fill="url(#monitorGrid)" />
       </svg>
 
-      <div className="relative p-5 space-y-4">
-        {/* Heart Rate Panel - Top Horizontal */}
-        <div className="relative overflow-hidden rounded-lg" style={{ 
-          background: 'rgba(15, 20, 28, 0.6)',
-          border: '1px solid rgba(78, 205, 196, 0.2)',
-          padding: '14px 18px',
-          boxShadow: '0 0 20px rgba(78, 205, 196, 0.1), inset 0 0 40px rgba(0, 0, 0, 0.3)'
-        }}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <span className="text-lg" style={{ color: getHRColor(heartRate) }}>♥</span>
-              <span 
-                className="font-sans text-3xl font-bold transition-all duration-200" 
-                style={{ 
-                  color: getHRColor(heartRate),
-                  transform: `scale(${numberFlicker})`,
-                  opacity: numberFlicker === 1 ? 1 : 0.98,
-                  fontFamily: 'system-ui, -apple-system, sans-serif',
-                  letterSpacing: '-0.02em',
-                  textShadow: `0 0 10px ${getHRColor(heartRate)}40`
-                }}
-              >
-                {heartRate}
-              </span>
-              <span className="text-xs font-medium tracking-wider uppercase" style={{ color: '#9CA3AF', fontFamily: 'system-ui, sans-serif' }}>BPM</span>
-            </div>
-          </div>
-          
-          {/* ECG Waveform - Full Width - Bright Green with Sweep */}
-          <div 
-            ref={ecgContainerRef}
-            data-ecg-container
-            className="relative h-32 overflow-hidden rounded" 
-            style={{ background: 'rgba(0, 0, 0, 0.4)' }}
-          >
-            <svg
-              viewBox="0 0 1000 100"
-              preserveAspectRatio="none"
-              style={{ width: '100%', height: '100%' }}
-            >
-              <defs>
-                <filter id="ecgGlow">
-                  <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-                  <feMerge>
-                    <feMergeNode in="coloredBlur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-                {/* Gradient fade behind sweep */}
-                <linearGradient id="ecgFadeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="rgba(0,0,0,0.9)" />
-                  <stop offset="50%" stopColor="rgba(0,0,0,0.3)" />
-                  <stop offset="100%" stopColor="rgba(0,0,0,0)" />
-                </linearGradient>
-                {/* Mask for sweep effect - white shows, black/transparent hides */}
-                <mask id="ecgSweepMask">
-                  <rect width="100%" height="100%" fill="white" />
-                  {/* Fade area behind sweep */}
-                  <rect 
-                    x={Math.max(0, (sweepPosition.ecg / (containerWidthsRef.current.ecg || 600)) * 1000 - 80)} 
-                    y="0" 
-                    width="80" 
-                    height="100" 
-                    fill="url(#ecgFadeGradient)"
-                  />
-                </mask>
-              </defs>
-              {/* Full waveform - always visible */}
-              <path
-                d={ecgPath}
-                fill="none"
-                stroke="#00FF88"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                filter="url(#ecgGlow)"
-                mask="url(#ecgSweepMask)"
-                style={{ 
-                  filter: 'drop-shadow(0 0 4px rgba(0, 255, 136, 0.8)) drop-shadow(0 0 8px rgba(0, 255, 136, 0.4))'
-                }}
-              />
-              {/* Sweep line - vertical band moving left to right */}
-              <line
-                x1={(sweepPosition.ecg / (containerWidthsRef.current.ecg || 600)) * 1000}
-                y1="0"
-                x2={(sweepPosition.ecg / (containerWidthsRef.current.ecg || 600)) * 1000}
-                y2="100"
-                stroke="#00FF88"
-                strokeWidth="1.5"
-                opacity="0.7"
-                style={{ filter: 'drop-shadow(0 0 6px rgba(0, 255, 136, 0.9))' }}
-              />
-            </svg>
-          </div>
-        </div>
-
-        {/* Middle Row: SpO₂, Blood Pressure, Temperature */}
-        <div className="grid grid-cols-3 gap-4">
-          {/* SpO₂ Panel */}
-          <div className="relative overflow-hidden rounded-lg" style={{ 
-            background: 'rgba(15, 20, 28, 0.6)',
-            border: '1px solid rgba(78, 205, 196, 0.2)',
-            padding: '14px',
-            boxShadow: '0 0 15px rgba(78, 205, 196, 0.08), inset 0 0 30px rgba(0, 0, 0, 0.3)'
+      <div className="relative p-6 space-y-6">
+        {/* Two Column Layout: BPM and Respiration */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Heart Rate (BPM) Panel */}
+          <div className="relative overflow-hidden rounded-xl" style={{ 
+            background: 'rgba(15, 20, 28, 0.7)',
+            border: '1px solid rgba(78, 205, 196, 0.25)',
+            padding: '20px',
+            boxShadow: '0 0 25px rgba(78, 205, 196, 0.15), inset 0 0 50px rgba(0, 0, 0, 0.3)'
           }}>
-            <div className="text-xs font-semibold tracking-wider mb-2 uppercase" style={{ color: '#9CA3AF', fontFamily: 'system-ui, sans-serif' }}>SpO₂</div>
-            <div className="flex items-baseline gap-2 mb-3">
-              <span 
-                className="font-sans text-2xl font-bold transition-all duration-200" 
-                style={{ 
-                  color: '#4ECDC4',
-                  transform: `scale(${numberFlicker})`,
-                  opacity: numberFlicker === 1 ? 1 : 0.98,
-                  fontFamily: 'system-ui, -apple-system, sans-serif',
-                  letterSpacing: '-0.02em',
-                  textShadow: '0 0 8px rgba(78, 205, 196, 0.4)'
-                }}
-              >
-                {spo2}
-              </span>
-              <span className="text-sm font-medium" style={{ color: '#9CA3AF' }}>%</span>
+            <div className="flex items-center gap-4 mb-4">
+              <span className="text-2xl" style={{ color: getHRColor(heartRate) }}>♥</span>
+              <div className="flex items-baseline gap-2">
+                <span 
+                  className="font-sans text-4xl font-bold transition-all duration-200" 
+                  style={{ 
+                    color: getHRColor(heartRate),
+                    transform: `scale(${numberFlicker})`,
+                    opacity: numberFlicker === 1 ? 1 : 0.98,
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    letterSpacing: '-0.02em',
+                    textShadow: `0 0 12px ${getHRColor(heartRate)}50`
+                  }}
+                >
+                  {heartRate}
+                </span>
+                <span className="text-sm font-semibold tracking-wider uppercase ml-1" style={{ color: '#9CA3AF', fontFamily: 'system-ui, sans-serif' }}>BPM</span>
+              </div>
             </div>
-            {/* Plethysmograph waveform - Cyan/Teal with Sweep */}
+            
+            {/* ECG Waveform - Full Width - Bright Green with Sweep */}
             <div 
-              ref={plethContainerRef}
-              data-pleth-container
-              className="relative h-24 overflow-hidden rounded" 
-              style={{ background: 'rgba(0, 0, 0, 0.4)' }}
+              ref={ecgContainerRef}
+              data-ecg-container
+              className="relative h-36 overflow-hidden rounded-lg" 
+              style={{ background: 'rgba(0, 0, 0, 0.5)' }}
             >
               <svg
-                viewBox="0 0 800 100"
+                viewBox="0 0 1000 100"
                 preserveAspectRatio="none"
                 style={{ width: '100%', height: '100%' }}
               >
                 <defs>
-                  <filter id="plethGlow">
+                  <filter id="ecgGlow">
                     <feGaussianBlur stdDeviation="2" result="coloredBlur" />
                     <feMerge>
                       <feMergeNode in="coloredBlur" />
                       <feMergeNode in="SourceGraphic" />
                     </feMerge>
                   </filter>
-                  <linearGradient id="plethFadeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  {/* Gradient fade behind sweep */}
+                  <linearGradient id="ecgFadeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="rgba(0,0,0,0.9)" />
                     <stop offset="50%" stopColor="rgba(0,0,0,0.3)" />
                     <stop offset="100%" stopColor="rgba(0,0,0,0)" />
                   </linearGradient>
-                  <mask id="plethSweepMask">
+                  {/* Mask for sweep effect - white shows, black/transparent hides */}
+                  <mask id="ecgSweepMask">
                     <rect width="100%" height="100%" fill="white" />
+                    {/* Fade area behind sweep */}
                     <rect 
-                      x={Math.max(0, (sweepPosition.pleth / (containerWidthsRef.current.pleth || 400)) * 800 - 60)} 
+                      x={Math.max(0, (sweepPosition.ecg / (containerWidthsRef.current.ecg || 600)) * 1000 - 80)} 
                       y="0" 
-                      width="60" 
+                      width="80" 
                       height="100" 
-                      fill="url(#plethFadeGradient)"
+                      fill="url(#ecgFadeGradient)"
                     />
                   </mask>
                 </defs>
                 {/* Full waveform - always visible */}
-                <path
-                  d={plethPath}
-                  fill="none"
-                  stroke="#00D9FF"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  filter="url(#plethGlow)"
-                  mask="url(#plethSweepMask)"
-                  style={{ filter: 'drop-shadow(0 0 4px rgba(0, 217, 255, 0.7)) drop-shadow(0 0 8px rgba(0, 217, 255, 0.3))' }}
-                />
-                {/* Sweep line */}
+                {ecgPath && (
+                  <path
+                    d={ecgPath}
+                    fill="none"
+                    stroke="#00FF88"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    filter="url(#ecgGlow)"
+                    mask="url(#ecgSweepMask)"
+                    style={{ 
+                      filter: 'drop-shadow(0 0 4px rgba(0, 255, 136, 0.8)) drop-shadow(0 0 8px rgba(0, 255, 136, 0.4))'
+                    }}
+                  />
+                )}
+                {/* Sweep line - vertical band moving left to right */}
                 <line
-                  x1={(sweepPosition.pleth / (containerWidthsRef.current.pleth || 400)) * 800}
+                  x1={(sweepPosition.ecg / (containerWidthsRef.current.ecg || 600)) * 1000}
                   y1="0"
-                  x2={(sweepPosition.pleth / (containerWidthsRef.current.pleth || 400)) * 800}
+                  x2={(sweepPosition.ecg / (containerWidthsRef.current.ecg || 600)) * 1000}
                   y2="100"
-                  stroke="#00D9FF"
+                  stroke="#00FF88"
                   strokeWidth="1.5"
                   opacity="0.7"
-                  style={{ filter: 'drop-shadow(0 0 6px rgba(0, 217, 255, 0.9))' }}
+                  style={{ filter: 'drop-shadow(0 0 6px rgba(0, 255, 136, 0.9))' }}
                 />
               </svg>
             </div>
           </div>
 
-          {/* Blood Pressure Panel */}
-          <div className="relative overflow-hidden rounded-lg" style={{ 
-            background: 'rgba(15, 20, 28, 0.6)',
-            border: '1px solid rgba(78, 205, 196, 0.2)',
-            padding: '14px',
-            boxShadow: '0 0 15px rgba(78, 205, 196, 0.08), inset 0 0 30px rgba(0, 0, 0, 0.3)'
+          {/* Respiration Panel */}
+          <div className="relative overflow-hidden rounded-xl" style={{ 
+            background: 'rgba(15, 20, 28, 0.7)',
+            border: '1px solid rgba(255, 215, 0, 0.25)',
+            padding: '20px',
+            boxShadow: '0 0 25px rgba(255, 215, 0, 0.15), inset 0 0 50px rgba(0, 0, 0, 0.3)'
           }}>
-            <div className="text-xs font-semibold tracking-wider mb-2 uppercase" style={{ color: '#9CA3AF', fontFamily: 'system-ui, sans-serif' }}>Blood Pressure</div>
-            <div className="flex items-baseline gap-2 mb-1">
-              <span 
-                className="font-sans text-2xl font-bold transition-all duration-200" 
-                style={{ 
-                  color: '#4ECDC4',
-                  transform: `scale(${numberFlicker})`,
-                  opacity: numberFlicker === 1 ? 1 : 0.98,
-                  fontFamily: 'system-ui, -apple-system, sans-serif',
-                  letterSpacing: '-0.02em',
-                  textShadow: '0 0 8px rgba(78, 205, 196, 0.4)'
-                }}
-              >
-                {systolic}
-              </span>
-              <span className="text-lg font-medium" style={{ color: '#9CA3AF' }}>/</span>
-              <span 
-                className="font-sans text-2xl font-bold transition-all duration-200" 
-                style={{ 
-                  color: '#4ECDC4',
-                  transform: `scale(${numberFlicker})`,
-                  opacity: numberFlicker === 1 ? 1 : 0.98,
-                  fontFamily: 'system-ui, -apple-system, sans-serif',
-                  letterSpacing: '-0.02em',
-                  textShadow: '0 0 8px rgba(78, 205, 196, 0.4)'
-                }}
-              >
-                {diastolic}
-              </span>
+            <div className="flex items-center gap-4 mb-4">
+              <span className="text-2xl" style={{ color: '#FFD700' }}>🫁</span>
+              <div className="flex items-baseline gap-2">
+                <span 
+                  className="font-sans text-4xl font-bold transition-all duration-200" 
+                  style={{ 
+                    color: '#FFD700',
+                    transform: `scale(${numberFlicker})`,
+                    opacity: numberFlicker === 1 ? 1 : 0.98,
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    letterSpacing: '-0.02em',
+                    textShadow: '0 0 12px rgba(255, 215, 0, 0.5)'
+                  }}
+                >
+                  {respirationRate}
+                </span>
+                <span className="text-sm font-semibold tracking-wider uppercase ml-1" style={{ color: '#9CA3AF', fontFamily: 'system-ui, sans-serif' }}>RPM</span>
+              </div>
             </div>
-            <div className="text-xs font-medium" style={{ color: '#9CA3AF' }}>mmHg</div>
-          </div>
-
-          {/* Temperature Panel */}
-          <div className="relative overflow-hidden rounded-lg" style={{ 
-            background: 'rgba(15, 20, 28, 0.6)',
-            border: '1px solid rgba(78, 205, 196, 0.2)',
-            padding: '14px',
-            boxShadow: '0 0 15px rgba(78, 205, 196, 0.08), inset 0 0 30px rgba(0, 0, 0, 0.3)'
-          }}>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm">🌡</span>
-              <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#9CA3AF', fontFamily: 'system-ui, sans-serif' }}>Temperature</span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span 
-                className="font-sans text-2xl font-bold transition-all duration-200" 
-                style={{ 
-                  color: '#4ECDC4',
-                  transform: `scale(${numberFlicker})`,
-                  opacity: numberFlicker === 1 ? 1 : 0.98,
-                  fontFamily: 'system-ui, -apple-system, sans-serif',
-                  letterSpacing: '-0.02em',
-                  textShadow: '0 0 8px rgba(78, 205, 196, 0.4)'
-                }}
-              >
-                {temperature.toFixed(1)}
-              </span>
-              <span className="text-sm font-medium" style={{ color: '#9CA3AF' }}>°C</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Respiration Panel - Bottom */}
-        <div className="relative overflow-hidden rounded-lg" style={{ 
-          background: 'rgba(15, 20, 28, 0.6)',
-          border: '1px solid rgba(78, 205, 196, 0.2)',
-          padding: '14px 18px',
-          boxShadow: '0 0 20px rgba(78, 205, 196, 0.1), inset 0 0 40px rgba(0, 0, 0, 0.3)'
-        }}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#9CA3AF', fontFamily: 'system-ui, sans-serif' }}>Respiration</span>
-              <span 
-                className="font-sans text-2xl font-bold transition-all duration-200" 
-                style={{ 
-                  color: '#FFD700',
-                  transform: `scale(${numberFlicker})`,
-                  opacity: numberFlicker === 1 ? 1 : 0.98,
-                  fontFamily: 'system-ui, -apple-system, sans-serif',
-                  letterSpacing: '-0.02em',
-                  textShadow: '0 0 8px rgba(255, 215, 0, 0.5)'
-                }}
-              >
-                {respirationRate}
-              </span>
-              <span className="text-xs font-medium tracking-wider uppercase" style={{ color: '#9CA3AF' }}>RPM</span>
-            </div>
-          </div>
-          
-          {/* Respiration Waveform - Full Width - Yellow/Gold with Sweep */}
-          <div 
-            ref={respContainerRef}
-            data-resp-container
-            className="relative h-28 overflow-hidden rounded" 
-            style={{ background: 'rgba(0, 0, 0, 0.4)' }}
-          >
-            <svg
-              viewBox="0 0 1000 100"
-              preserveAspectRatio="none"
-              style={{ width: '100%', height: '100%' }}
+            
+            {/* Respiration Waveform - Full Width - Yellow/Gold with Sweep */}
+            <div 
+              ref={respContainerRef}
+              data-resp-container
+              className="relative h-36 overflow-hidden rounded-lg" 
+              style={{ background: 'rgba(0, 0, 0, 0.5)' }}
             >
-              <defs>
-                <filter id="respirationGlow">
-                  <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-                  <feMerge>
-                    <feMergeNode in="coloredBlur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-                <linearGradient id="respFadeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="rgba(0,0,0,0.9)" />
-                  <stop offset="50%" stopColor="rgba(0,0,0,0.3)" />
-                  <stop offset="100%" stopColor="rgba(0,0,0,0)" />
-                </linearGradient>
-                <mask id="respSweepMask">
-                  <rect width="100%" height="100%" fill="white" />
-                  <rect 
-                    x={Math.max(0, (sweepPosition.resp / (containerWidthsRef.current.resp || 600)) * 1000 - 80)} 
-                    y="0" 
-                    width="80" 
-                    height="100" 
-                    fill="url(#respFadeGradient)"
+              <svg
+                viewBox="0 0 1000 100"
+                preserveAspectRatio="none"
+                style={{ width: '100%', height: '100%' }}
+              >
+                <defs>
+                  <filter id="respirationGlow">
+                    <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                    <feMerge>
+                      <feMergeNode in="coloredBlur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  <linearGradient id="respFadeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="rgba(0,0,0,0.9)" />
+                    <stop offset="50%" stopColor="rgba(0,0,0,0.3)" />
+                    <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+                  </linearGradient>
+                  <mask id="respSweepMask">
+                    <rect width="100%" height="100%" fill="white" />
+                    <rect 
+                      x={Math.max(0, (sweepPosition.resp / (containerWidthsRef.current.resp || 600)) * 1000 - 80)} 
+                      y="0" 
+                      width="80" 
+                      height="100" 
+                      fill="url(#respFadeGradient)"
+                    />
+                  </mask>
+                </defs>
+                {/* Full waveform - always visible */}
+                {respirationPath && (
+                  <path
+                    d={respirationPath}
+                    fill="none"
+                    stroke="#FFD700"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    filter="url(#respirationGlow)"
+                    mask="url(#respSweepMask)"
+                    style={{ filter: 'drop-shadow(0 0 4px rgba(255, 215, 0, 0.8)) drop-shadow(0 0 8px rgba(255, 215, 0, 0.4))' }}
                   />
-                </mask>
-              </defs>
-              {/* Full waveform - always visible */}
-              <path
-                d={respirationPath}
-                fill="none"
-                stroke="#FFD700"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                filter="url(#respirationGlow)"
-                mask="url(#respSweepMask)"
-                style={{ filter: 'drop-shadow(0 0 4px rgba(255, 215, 0, 0.8)) drop-shadow(0 0 8px rgba(255, 215, 0, 0.4))' }}
-              />
-              {/* Sweep line */}
-              <line
-                x1={(sweepPosition.resp / (containerWidthsRef.current.resp || 600)) * 1000}
-                y1="0"
-                x2={(sweepPosition.resp / (containerWidthsRef.current.resp || 600)) * 1000}
-                y2="100"
-                stroke="#FFD700"
-                strokeWidth="1.5"
-                opacity="0.7"
-                style={{ filter: 'drop-shadow(0 0 6px rgba(255, 215, 0, 0.9))' }}
-              />
-            </svg>
+                )}
+                {/* Sweep line */}
+                <line
+                  x1={(sweepPosition.resp / (containerWidthsRef.current.resp || 600)) * 1000}
+                  y1="0"
+                  x2={(sweepPosition.resp / (containerWidthsRef.current.resp || 600)) * 1000}
+                  y2="100"
+                  stroke="#FFD700"
+                  strokeWidth="1.5"
+                  opacity="0.7"
+                  style={{ filter: 'drop-shadow(0 0 6px rgba(255, 215, 0, 0.9))' }}
+                />
+              </svg>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
-}
+});
 
 const palette = {
   // Primary colors: lively blues, teal, vibrant accents
@@ -790,14 +634,17 @@ const palette = {
 
 const valueProps = [
   {
+    icon: '🛡️',
     title: 'Reliable monitoring you can trust',
     body: 'Patient data is recorded consistently and accurately, so alerts and vital trends can be reviewed with confidence at any time.'
   },
   {
+    icon: '🔔',
     title: 'Flexible alerts for each patient',
     body: 'Set safe ranges for vital signs globally or per patient, with clear alerts that staff can acknowledge and follow up on.'
   },
   {
+    icon: '🎓',
     title: 'Designed for training and demonstration',
     body: 'Supports realistic monitoring scenarios to help teams understand alert behavior and system responses.'
   }
@@ -807,12 +654,6 @@ const howItWorks = [
   { title: 'Collect vital signs', body: 'Monitoring devices regularly send patient vital signs to the system.' },
   { title: 'Detect potential issues', body: 'Vital signs are automatically checked against safe ranges, and alerts are created when values become abnormal.' },
   { title: 'View updates in real time', body: 'Live dashboards show current vital signs and alerts so staff can respond quickly.' }
-];
-
-const useCases = [
-  'Hospital & ward monitoring',
-  'Remote patient monitoring',
-  'Training & system demonstration'
 ];
 
 const faq = [
@@ -834,296 +675,416 @@ const faq = [
   }
 ];
 
-const sectionCard = "rounded-xl border bg-white";
+const sectionCard = "rounded-xl border";
 
 export default function Page() {
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#FFFFFF', color: palette.navy, fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <header className="border-b bg-white" style={{ borderColor: palette.border, boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
+    <div 
+      className="min-h-screen relative" 
+      style={{ 
+        backgroundColor: '#FFFFFF', 
+        color: palette.navy, 
+        fontFamily: '"Inter", sans-serif',
+        backgroundImage: 'url(/background.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+        willChange: 'auto' // Optimize for rendering performance
+      }}
+    >
+      {/* Overlay to make background faint */}
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.65)' // Adjust opacity here (0.65 = 35% visible, lower = more visible)
+        }}
+      />
+      
+      {/* Content wrapper with relative positioning */}
+      <div className="relative z-10">
+      <header className="border-b" style={{ backgroundColor: 'transparent', borderColor: 'transparent', boxShadow: 'none' }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <img src="/MedQL_Modern_Clinical_Logo_White.png" alt="MyMedQL" className="h-32 w-auto" />
-          <nav className="hidden items-center gap-8 text-sm font-medium md:flex" style={{ color: palette.navy }}>
-            <a href="#product" style={{ color: palette.navy }} className="hover:opacity-70 transition-opacity">Product</a>
-            <a href="#how" style={{ color: palette.navy }} className="hover:opacity-70 transition-opacity">How It Works</a>
-            <a href="#features" style={{ color: palette.navy }} className="hover:opacity-70 transition-opacity">Features</a>
-            <a href="#demo" style={{ color: palette.navy }} className="hover:opacity-70 transition-opacity">Demo</a>
-            <a href="#docs" style={{ color: palette.navy }} className="hover:opacity-70 transition-opacity">Docs</a>
+          <img src="/MedQL_Modern_Clinical_Logo_White.png" alt="MyMedQL" className="h-40 w-auto" />
+          <nav className="hidden items-center gap-8 text-base font-medium md:flex" style={{ color: palette.navy, fontFamily: '"Inter", sans-serif', lineHeight: '1.5' }}>
+            <a href="#product" style={{ color: palette.navy }} className="relative transition-all duration-300 hover:opacity-80 hover:scale-105 hover:underline hover:underline-offset-4">Product</a>
+            <a href="#how" style={{ color: palette.navy }} className="relative transition-all duration-300 hover:opacity-80 hover:scale-105 hover:underline hover:underline-offset-4">How It Works</a>
+            <a href="#features" style={{ color: palette.navy }} className="relative transition-all duration-300 hover:opacity-80 hover:scale-105 hover:underline hover:underline-offset-4">Features</a>
+            <a href="#demo" style={{ color: palette.navy }} className="relative transition-all duration-300 hover:opacity-80 hover:scale-105 hover:underline hover:underline-offset-4">Demo</a>
+            <a href="#docs" style={{ color: palette.navy }} className="relative transition-all duration-300 hover:opacity-80 hover:scale-105 hover:underline hover:underline-offset-4">Docs</a>
           </nav>
           <div className="flex items-center gap-3">
-            <Link href="/roles" className="rounded-lg border px-5 py-2.5 text-sm font-semibold transition-all hover:bg-gray-50" style={{ color: palette.brand, borderColor: palette.brand }}>Get Started</Link>
-            <button className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90" style={{ backgroundColor: palette.brand, boxShadow: `0 4px 12px ${palette.brand}40` }}>Start Demo</button>
+            <Link href="/roles" className="rounded-lg border px-5 py-2.5 text-sm font-semibold transition-all duration-300 hover:bg-gray-50 hover:scale-105 hover:shadow-md" style={{ color: palette.brand, borderColor: palette.brand, fontFamily: '"Inter", sans-serif' }}>Get Started</Link>
+            <button className="rounded-lg px-5 py-2.5 text-sm font-semibold transition-all duration-300 hover:opacity-90 hover:scale-105 hover:shadow-lg" style={{ backgroundColor: palette.brand, color: '#000000', boxShadow: `0 4px 12px ${palette.brand}40`, fontFamily: '"Inter", sans-serif' }}>Start Demo</button>
           </div>
         </div>
       </header>
 
       <main>
         {/* Hero */}
-        <section id="product" className="mx-auto max-w-7xl px-6 pt-20 pb-20">
-          <div className="mb-8">
-            <p className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold mb-6" style={{ backgroundColor: '#E0F7FA', color: palette.brand, border: `1px solid ${palette.brand}40` }}>
-              Continuous monitoring · Clear alerts · Reliable records
-            </p>
-          </div>
+        <section id="product" className="mx-auto max-w-7xl px-6 pt-12 pb-24 relative">
+          <div className="absolute inset-0 opacity-5" style={{
+            background: 'radial-gradient(circle at 30% 50%, rgba(0, 184, 212, 0.3) 0%, transparent 50%), radial-gradient(circle at 70% 80%, rgba(30, 58, 95, 0.2) 0%, transparent 50%)'
+          }}></div>
+          <AnimatedSection delay={0.1}>
+            <div className="mb-8">
+              <p className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold mb-6" style={{ backgroundColor: 'rgba(224, 247, 250, 0.85)', color: palette.brand, border: `1px solid ${palette.brand}40` }}>
+                Continuous monitoring · Clear alerts · Reliable records
+              </p>
+            </div>
+          </AnimatedSection>
           
-          {/* Landscape Layout: Title and Dashboard side by side */}
-          <div className="flex flex-col lg:flex-row gap-12 items-start mb-12">
-            <div className="flex-1 lg:max-w-lg">
-              <h1 className="text-4xl font-bold leading-tight mb-6" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: '-0.02em', lineHeight: '1.2' }}>
-                Real-time vital monitoring for safer patient care
-              </h1>
-              <p className="text-lg mb-8 leading-relaxed" style={{ color: '#37474F', lineHeight: '1.7' }}>
-                MyMedQL continuously tracks patient vital signs and notifies healthcare staff when readings move outside safe ranges. Live dashboards and clear alerts help teams act quickly, while keeping a reliable record of patient data over time.
-              </p>
-              <div className="flex flex-wrap gap-4 mb-8">
-                <Link href="/roles" className="rounded-lg px-6 py-3 text-sm font-semibold text-white transition-all hover:opacity-90" style={{ backgroundColor: palette.brand, boxShadow: `0 4px 12px ${palette.brand}40` }}>Get Started</Link>
-                <button className="rounded-lg border px-6 py-3 text-sm font-semibold transition-all hover:bg-gray-50" style={{ color: palette.brand, borderColor: palette.brand, backgroundColor: palette.surface }}>Request a Demo</button>
-              </div>
-              <div className="flex flex-wrap gap-3 text-xs font-medium" style={{ color: palette.navy }}>
-                {['Continuous Monitoring', 'Early Warning Alerts', 'Staff & Patient Access', 'Privacy-focused Design'].map((chip) => (
-                  <span key={chip} className="rounded-lg px-3 py-1.5" style={{ backgroundColor: '#E0F7FA', border: `1px solid ${palette.brand}40`, color: palette.brand }}>{chip}</span>
-                ))}
-              </div>
-            </div>
-            
-            {/* Dashboard - Landscape Mode */}
-            <div className="flex-1 lg:flex-[1.5] w-full">
-              <div className="rounded-2xl overflow-hidden" style={{ 
-                background: '#0A0E14',
-                border: '1px solid rgba(78, 205, 196, 0.2)',
-                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4), 0 0 40px rgba(78, 205, 196, 0.1)'
-              }}>
-                <div className="p-5" style={{ background: 'rgba(10, 14, 20, 0.8)' }}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="font-semibold text-base tracking-wide" style={{ color: '#4ECDC4', fontFamily: 'system-ui, sans-serif' }}>Patient Monitoring Dashboard</div>
-                    <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: 'rgba(78, 205, 196, 0.15)', color: '#00FF88', border: '1px solid rgba(0, 255, 136, 0.3)' }}>● LIVE</span>
-                  </div>
-                  <MedicalMonitoringDashboard />
-                </div>
-                <div className="space-y-3 p-5" style={{ background: 'rgba(15, 20, 28, 0.6)', borderTop: '1px solid rgba(78, 205, 196, 0.15)' }}>
-                <div className="flex items-center justify-between rounded-lg px-4 py-3 text-sm" style={{ 
-                  background: 'rgba(15, 20, 28, 0.8)', 
-                  border: '1px solid rgba(78, 205, 196, 0.2)',
-                  boxShadow: '0 0 10px rgba(78, 205, 196, 0.05)'
+          {/* Vertical Layout: Title above Dashboard */}
+          <div className="mb-12">
+            <AnimatedSection delay={0.2}>
+              <div className="w-full mb-12">
+                <h1 className="text-5xl md:text-6xl font-bold leading-tight mb-6" style={{ 
+                  color: '#0A2540', 
+                  fontFamily: '"Inter", sans-serif', 
+                  letterSpacing: '-0.03em', 
+                  lineHeight: '1.1', 
+                  fontWeight: 800,
+                  textShadow: '0 2px 20px rgba(10, 37, 64, 0.1)',
+                  background: 'linear-gradient(135deg, #0A2540 0%, #1E3A5F 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
                 }}>
-                  <div className="flex items-center gap-3">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#00FF88', boxShadow: '0 0 6px rgba(0, 255, 136, 0.6)' }} />
-                    <span className="font-semibold" style={{ color: '#E5E7EB', fontFamily: 'system-ui, sans-serif' }}>Patient 104</span>
-                    <span className="text-xs font-mono" style={{ color: '#4ECDC4' }}>HR 96 · SpO₂ 97%</span>
-                  </div>
-                  <button className="text-xs font-semibold transition-colors px-3 py-1.5 rounded-md hover:bg-white/10" style={{ color: '#4ECDC4' }}>View</button>
+                  Real-time Vital Monitoring for Patient Care
+                </h1>
+                <p className="text-lg mb-8 leading-relaxed max-w-4xl" style={{ color: '#37474F', lineHeight: '1.7', fontFamily: '"Inter", sans-serif' }}>
+                  MyMedQL continuously tracks patient vital signs and notifies healthcare staff when readings move outside safe ranges. Live dashboards and clear alerts help teams act quickly, while keeping a reliable record of patient data over time.
+                </p>
+                <div className="flex flex-wrap gap-4 mb-8">
+                  <Link href="/roles" className="rounded-lg px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:opacity-90 hover:scale-105 hover:shadow-lg" style={{ backgroundColor: palette.brand, boxShadow: `0 4px 12px ${palette.brand}40` }}>Get Started</Link>
+                  <button className="rounded-lg border px-6 py-3 text-sm font-semibold transition-all duration-300 hover:bg-gray-50 hover:scale-105 hover:shadow-md" style={{ color: palette.brand, borderColor: palette.brand, backgroundColor: palette.surface }}>Request a Demo</button>
                 </div>
-                <div className="flex items-center justify-between rounded-lg px-4 py-3 text-sm" style={{ 
-                  background: 'rgba(15, 20, 28, 0.8)', 
-                  border: '1px solid rgba(255, 107, 107, 0.4)',
-                  boxShadow: '0 0 15px rgba(255, 107, 107, 0.2)'
-                }}>
-                  <div className="flex items-center gap-3">
-                    <span className="h-2.5 w-2.5 rounded-full animate-pulse" style={{ backgroundColor: '#FF6B6B', boxShadow: '0 0 8px rgba(255, 107, 107, 0.7)' }} />
-                    <div className="flex flex-col">
-                      <span className="font-semibold" style={{ color: '#FF6B6B', fontFamily: 'system-ui, sans-serif' }}>Alert · Tachycardia</span>
-                      <span className="text-xs font-mono mt-0.5" style={{ color: '#9CA3AF' }}>HR 128 at 14:03</span>
-                    </div>
-                  </div>
-                  <button 
-                    className="rounded-lg px-5 py-2 text-xs font-semibold text-white transition-all hover:opacity-90" 
-                    style={{ 
-                      backgroundColor: '#FF6B6B',
-                      boxShadow: '0 0 12px rgba(255, 107, 107, 0.4)'
-                    }}
-                  >
-                    Acknowledge
-                  </button>
-                </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Value Props */}
-        <section id="features" className="py-16" style={{ backgroundColor: '#E0F7FA' }}>
-          <div className="mx-auto max-w-6xl px-6">
-            <h2 className="text-3xl font-bold mb-10" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>Why choose MyMedQL</h2>
-            <div className="grid gap-6 md:grid-cols-3">
-              {valueProps.map((item) => (
-                <div key={item.title} className={`${sectionCard} p-8`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20` }}>
-                  <div className="mb-4 h-12 w-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: palette.brand + '20', color: palette.brand }}></div>
-                  <h3 className="text-lg font-semibold mb-3" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>{item.title}</h3>
-                  <p className="text-sm leading-relaxed" style={{ color: '#37474F', lineHeight: '1.6' }}>{item.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* How it works */}
-        <section id="how" className="mx-auto max-w-6xl px-6 py-16">
-          <div className="flex flex-col gap-10 md:flex-row md:items-center md:justify-between">
-            <div className="max-w-xl">
-              <h2 className="text-3xl font-bold mb-4" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>How it works</h2>
-              <p className="text-base leading-relaxed" style={{ color: '#37474F', lineHeight: '1.7' }}>
-                MyMedQL continuously collects vital signs, checks them against safe ranges, and displays updates and alerts in real time.
-              </p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-3">
-              {howItWorks.map((item, idx) => (
-                <div key={item.title} className={`${sectionCard} p-6`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20` }}>
-                  <div className="mb-3 flex items-center gap-3 text-sm font-semibold" style={{ color: palette.brand }}>
-                    <span className="h-8 w-8 rounded-full text-center leading-8 flex items-center justify-center" style={{ backgroundColor: palette.brand + '20', color: palette.brand }}>{idx + 1}</span>
-                    {item.title}
-                  </div>
-                  <p className="text-sm leading-relaxed" style={{ color: '#37474F', lineHeight: '1.6' }}>{item.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Use cases and scenarios */}
-        <section id="demo" className="py-16" style={{ backgroundColor: '#FFFFFF' }}>
-          <div className="mx-auto max-w-6xl px-6">
-            <div className="grid gap-12 md:grid-cols-2">
-              <div>
-                <h3 className="text-2xl font-bold mb-6" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>Use cases</h3>
-                <div className="space-y-3">
-                  {useCases.map((item) => (
-                    <div key={item} className="flex items-center gap-3 rounded-lg border bg-white px-5 py-4" style={{ borderColor: palette.brand + '40', boxShadow: `0 2px 8px ${palette.brand}15` }}>
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: palette.success }} />
-                      <span className="text-sm font-semibold" style={{ color: palette.navy }}>{item}</span>
-                    </div>
+                <div className="flex flex-wrap gap-3 text-xs font-medium" style={{ color: palette.navy }}>
+                  {['Continuous Monitoring', 'Early Warning Alerts', 'Staff & Patient Access', 'Privacy-focused Design'].map((chip, idx) => (
+                    <AnimatedSection key={chip} delay={0.3 + idx * 0.05}>
+                      <span className="rounded-lg px-3 py-1.5 transition-all duration-300 cursor-pointer hover:scale-110 hover:shadow-md" style={{ backgroundColor: 'rgba(224, 247, 250, 0.85)', border: `1px solid ${palette.brand}40`, color: palette.brand }} onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 247, 250, 1)'; e.currentTarget.style.borderColor = palette.brand; }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 247, 250, 0.85)'; e.currentTarget.style.borderColor = palette.brand + '40'; }}>{chip}</span>
+                    </AnimatedSection>
                   ))}
                 </div>
               </div>
-              <div>
-                <h3 className="text-2xl font-bold mb-6" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>Example patient monitoring timeline</h3>
-                <div className="rounded-xl border p-8" style={{ background: '#E0F7FA', borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20` }}>
-                  <div className="flex items-center justify-between text-xs font-semibold mb-4" style={{ color: palette.navy }}>
-                    <span>Time</span>
-                    <span>Alerts</span>
-                  </div>
-                  <div className="h-2 rounded-full mb-6" style={{ backgroundColor: palette.border }}>
-                    <div className="h-2 w-1/3 rounded-full" style={{ backgroundColor: palette.success }} />
-                  </div>
-                  <div className="space-y-4 text-sm mb-6" style={{ color: '#37474F' }}>
-                    <div className="flex items-center gap-3">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: palette.success }} />
-                      Normal vital signs are monitored continuously
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: palette.danger }} />
-                      An abnormal heart rate triggers an alert for staff
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: palette.brand }} />
-                      Vitals return to normal and the alert is resolved
-                    </div>
-                  </div>
-                  <button className="w-full rounded-lg px-4 py-3 text-sm font-semibold text-white transition-all hover:opacity-90" style={{ backgroundColor: palette.brand, boxShadow: `0 4px 12px ${palette.brand}40` }}>Run Scenario</button>
-                </div>
-              </div>
-            </div>
+            </AnimatedSection>
           </div>
         </section>
 
+        {/* Statistics Section */}
+        <AnimatedSection>
+          <section className="mx-auto max-w-7xl px-6 -mt-8 pb-16">
+            <div className="relative">
+              {/* Glassmorphism statistics panel with blue border */}
+              <div 
+                className="rounded-2xl p-8 md:p-12 backdrop-blur-md"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.3)',
+                  border: '2px solid rgba(0, 184, 212, 0.5)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.2)'
+                }}
+              >
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+                  {/* Number of Staff */}
+                  <div className="text-center">
+                    <div 
+                      className="text-5xl md:text-6xl font-bold mb-2"
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontFamily: '"Inter", sans-serif',
+                        WebkitTextStroke: '0.5px #00B8D4',
+                        textStroke: '0.5px #00B8D4',
+                        textShadow: '-0.5px -0.5px 0 #00B8D4, 0.5px -0.5px 0 #00B8D4, -0.5px 0.5px 0 #00B8D4, 0.5px 0.5px 0 #00B8D4, 0 2px 10px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      50+
+                    </div>
+                    <div 
+                      className="text-sm md:text-base font-medium"
+                      style={{ 
+                        color: '#00B8D4',
+                        fontFamily: '"Inter", sans-serif',
+                        textShadow: '0 1px 5px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      healthcare staff members
+                    </div>
+                  </div>
+
+                  {/* Number of Patients */}
+                  <div className="text-center">
+                    <div 
+                      className="text-5xl md:text-6xl font-bold mb-2"
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontFamily: '"Inter", sans-serif',
+                        WebkitTextStroke: '0.5px #00B8D4',
+                        textStroke: '0.5px #00B8D4',
+                        textShadow: '-0.5px -0.5px 0 #00B8D4, 0.5px -0.5px 0 #00B8D4, -0.5px 0.5px 0 #00B8D4, 0.5px 0.5px 0 #00B8D4, 0 2px 10px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      10,000+
+                    </div>
+                    <div 
+                      className="text-sm md:text-base font-medium"
+                      style={{ 
+                        color: '#00B8D4',
+                        fontFamily: '"Inter", sans-serif',
+                        textShadow: '0 1px 5px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      patients monitored
+                    </div>
+                  </div>
+
+                  {/* Patient Satisfaction Rating */}
+                  <div className="text-center">
+                    <div 
+                      className="text-5xl md:text-6xl font-bold mb-2"
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontFamily: '"Inter", sans-serif',
+                        WebkitTextStroke: '0.5px #00B8D4',
+                        textStroke: '0.5px #00B8D4',
+                        textShadow: '-0.5px -0.5px 0 #00B8D4, 0.5px -0.5px 0 #00B8D4, -0.5px 0.5px 0 #00B8D4, 0.5px 0.5px 0 #00B8D4, 0 2px 10px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      95%
+                    </div>
+                    <div 
+                      className="text-sm md:text-base font-medium"
+                      style={{ 
+                        color: '#00B8D4',
+                        fontFamily: '"Inter", sans-serif',
+                        textShadow: '0 1px 5px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      patient satisfaction rating
+                    </div>
+                  </div>
+
+                  {/* Response Time */}
+                  <div className="text-center">
+                    <div 
+                      className="text-5xl md:text-6xl font-bold mb-2"
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontFamily: '"Inter", sans-serif',
+                        WebkitTextStroke: '0.5px #00B8D4',
+                        textStroke: '0.5px #00B8D4',
+                        textShadow: '-0.5px -0.5px 0 #00B8D4, 0.5px -0.5px 0 #00B8D4, -0.5px 0.5px 0 #00B8D4, 0.5px 0.5px 0 #00B8D4, 0 2px 10px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      &lt;2s
+                    </div>
+                    <div 
+                      className="text-sm md:text-base font-medium"
+                      style={{ 
+                        color: '#00B8D4',
+                        fontFamily: '"Inter", sans-serif',
+                        textShadow: '0 1px 5px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      average response time
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </AnimatedSection>
+
+        {/* Value Props */}
+        <AnimatedSection>
+          <section id="features" className="py-20" style={{ 
+            background: 'linear-gradient(135deg, rgba(224, 247, 250, 0.9) 0%, rgba(178, 235, 242, 0.7) 100%)',
+            position: 'relative'
+          }}>
+            <div className="mx-auto max-w-6xl px-6">
+              <h2 className="text-4xl font-bold mb-10 text-center" style={{ 
+                color: '#0A2540', 
+                fontFamily: '"Inter", sans-serif', 
+                fontWeight: 800,
+                background: 'linear-gradient(135deg, #0A2540 0%, #1E3A5F 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}>Why choose MyMedQL</h2>
+              <div className="grid gap-6 md:grid-cols-3">
+                {valueProps.map((item, idx) => (
+                  <AnimatedSection key={item.title} delay={idx * 0.1}>
+                    <div className={`${sectionCard} p-8 h-64 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-xl`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20`, backgroundColor: 'rgba(255, 255, 255, 0.85)' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = palette.brand; e.currentTarget.style.boxShadow = `0 8px 24px ${palette.brand}40`; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = palette.brand + '40'; e.currentTarget.style.boxShadow = `0 4px 12px ${palette.brand}20`; }}>
+                      <div className="mb-4 h-12 w-12 rounded-lg flex items-center justify-center text-2xl transition-transform duration-300 group-hover:scale-110" style={{ backgroundColor: palette.brand + '20', color: palette.brand }}>
+                        {item.icon}
+                      </div>
+                      <h3 className="text-lg font-semibold mb-3 transition-colors duration-300" style={{ color: palette.navy, fontFamily: '"Inter", sans-serif', fontWeight: 600 }}>{item.title}</h3>
+                      <p className="text-sm leading-relaxed" style={{ color: '#37474F', lineHeight: '1.6', fontFamily: '"Inter", sans-serif' }}>{item.body}</p>
+                    </div>
+                  </AnimatedSection>
+                ))}
+              </div>
+            </div>
+          </section>
+        </AnimatedSection>
+
+        {/* How it works */}
+        <AnimatedSection>
+          <section id="how" className="mx-auto max-w-6xl px-6 py-16">
+            <div className="flex flex-col gap-10 md:flex-row md:items-center md:justify-between">
+              <AnimatedSection delay={0.1}>
+                <div className="max-w-xl">
+                  <h2 className="text-4xl font-bold mb-4" style={{ 
+                    color: '#0A2540', 
+                    fontFamily: '"Inter", sans-serif', 
+                    fontWeight: 800,
+                    background: 'linear-gradient(135deg, #0A2540 0%, #1E3A5F 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}>How it works</h2>
+                  <p className="text-base leading-relaxed" style={{ color: '#37474F', lineHeight: '1.7' }}>
+                    MyMedQL continuously collects vital signs, checks them against safe ranges, and displays updates and alerts in real time.
+                  </p>
+                </div>
+              </AnimatedSection>
+              <div className="grid gap-4 md:grid-cols-3">
+                {howItWorks.map((item, idx) => (
+                  <AnimatedSection key={item.title} delay={0.2 + idx * 0.1}>
+                    <div className={`${sectionCard} p-6 h-48 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-xl`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20`, backgroundColor: 'rgba(255, 255, 255, 0.85)' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = palette.brand; e.currentTarget.style.boxShadow = `0 8px 24px ${palette.brand}40`; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = palette.brand + '40'; e.currentTarget.style.boxShadow = `0 4px 12px ${palette.brand}20`; }}>
+                      <div className="mb-3 flex items-center gap-3 text-sm font-semibold transition-colors duration-300" style={{ color: palette.brand, fontFamily: '"Inter", sans-serif' }}>
+                        <span className="h-8 w-8 rounded-full text-center leading-8 flex items-center justify-center transition-transform duration-300 hover:scale-110" style={{ backgroundColor: palette.brand + '20', color: palette.brand }}>{idx + 1}</span>
+                        {item.title}
+                      </div>
+                      <p className="text-sm leading-relaxed" style={{ color: '#37474F', lineHeight: '1.6', fontFamily: '"Inter", sans-serif' }}>{item.body}</p>
+                    </div>
+                  </AnimatedSection>
+                ))}
+              </div>
+            </div>
+          </section>
+        </AnimatedSection>
+
         {/* Data & Security */}
-        <section id="docs" className="mx-auto max-w-6xl px-6 py-16">
-          <div className={`${sectionCard} p-8`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20` }}>
-            <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
-              <div className="max-w-xl">
-                <h3 className="text-2xl font-bold mb-3" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>Data & Security</h3>
-                <p className="text-base leading-relaxed" style={{ color: '#37474F', lineHeight: '1.7' }}>
+        <AnimatedSection>
+          <section id="demo" className="py-20" style={{ 
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.9) 100%)',
+            position: 'relative'
+          }}>
+            <div className="mx-auto max-w-6xl px-6">
+              <div className="text-center mb-12">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-6" style={{ backgroundColor: palette.brand + '20' }}>
+                  <span className="text-4xl">🔒</span>
+                </div>
+                <h3 className="text-4xl font-bold mb-4 text-center" style={{ 
+                  color: '#0A2540', 
+                  fontFamily: '"Inter", sans-serif', 
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, #0A2540 0%, #1E3A5F 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}>Data & Security</h3>
+                <p className="text-base leading-relaxed max-w-3xl mx-auto" style={{ color: '#37474F', lineHeight: '1.7', fontFamily: '"Inter", sans-serif' }}>
                   Patient data is protected with strong security measures and access controls. Only authorized users can view sensitive information, and all activity is recorded responsibly.
                 </p>
               </div>
-              <div className="grid gap-3 text-sm md:grid-cols-2" style={{ color: palette.navy }}>
+              <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {[
-                  "Encrypted patient data",
-                  "Role-based access",
-                  "Secure login and authentication",
-                  "Audit-friendly records",
-                  "Privacy-focused design",
-                  "Authorized staff access only"
-                ].map((item) => (
-                  <span key={item} className="rounded-lg px-4 py-3 font-medium" style={{ backgroundColor: '#E0F7FA', border: `1px solid ${palette.brand}40`, color: palette.brand }}>{item}</span>
+                  { icon: "🔐", title: "Encrypted patient data", description: "All data is encrypted at rest and in transit" },
+                  { icon: "👥", title: "Role-based access", description: "Granular permissions for different user roles" },
+                  { icon: "🔑", title: "Secure login and authentication", description: "Multi-factor authentication support" },
+                  { icon: "📋", title: "Audit-friendly records", description: "Complete activity logs for compliance" },
+                  { icon: "🛡️", title: "Privacy-focused design", description: "Built with patient privacy as a priority" },
+                  { icon: "✅", title: "Authorized staff access only", description: "Strict access controls and monitoring" }
+                ].map((item, idx) => (
+                  <AnimatedSection key={item.title} delay={0.1 + idx * 0.05}>
+                    <div className={`${sectionCard} p-6 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-xl`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20`, backgroundColor: 'rgba(255, 255, 255, 0.85)', background: `linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(224, 247, 250, 0.3) 100%)` }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = palette.brand; e.currentTarget.style.boxShadow = `0 8px 24px ${palette.brand}40`; e.currentTarget.style.background = `linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(224, 247, 250, 0.5) 100%)`; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = palette.brand + '40'; e.currentTarget.style.boxShadow = `0 4px 12px ${palette.brand}20`; e.currentTarget.style.background = `linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(224, 247, 250, 0.3) 100%)`; }}>
+                      <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center text-2xl" style={{ backgroundColor: palette.brand + '20' }}>
+                          {item.icon}
+                        </div>
+                        <div className="flex-grow">
+                          <h4 className="text-base font-semibold mb-2 transition-colors duration-300" style={{ color: palette.navy, fontFamily: '"Inter", sans-serif', fontWeight: 600 }}>{item.title}</h4>
+                          <p className="text-xs leading-relaxed transition-colors duration-300" style={{ color: '#6B7280', lineHeight: '1.5', fontFamily: '"Inter", sans-serif' }}>{item.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </AnimatedSection>
                 ))}
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </AnimatedSection>
 
         {/* About Us */}
-        <section id="about" className="py-16" style={{ backgroundColor: '#E0F7FA' }}>
-          <div className="mx-auto max-w-6xl px-6">
-            <div className="mb-12 text-center">
-              <span className="inline-block rounded-full px-4 py-1.5 text-xs font-semibold mb-4" style={{ backgroundColor: palette.brand + '20', color: palette.brand, border: `1px solid ${palette.brand}40` }}>Built by students. Designed for care.</span>
-              <h2 className="text-3xl font-bold" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>About Us</h2>
-            </div>
-
-            {/* Vision and Mission Cards */}
-            <div className="mb-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              <div className={`${sectionCard} p-6`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20` }}>
-                <div className="mb-4">
-                  <span className="block text-2xl" role="img" aria-label="goal">🎯</span>
+        <AnimatedSection>
+          <section id="about" className="py-20" style={{ 
+            background: 'linear-gradient(135deg, rgba(224, 247, 250, 0.9) 0%, rgba(178, 235, 242, 0.7) 100%)',
+            position: 'relative'
+          }}>
+            <div className="mx-auto max-w-6xl px-6">
+              <AnimatedSection delay={0.1}>
+                <div className="mb-12 text-center">
+                  <span className="inline-block rounded-full px-4 py-1.5 text-xs font-semibold mb-4" style={{ backgroundColor: 'rgba(0, 184, 212, 0.2)', color: palette.brand, border: `1px solid ${palette.brand}40` }}>Built by students. Designed for care.</span>
+                  <h2 className="text-4xl font-bold" style={{ 
+                    color: '#0A2540', 
+                    fontFamily: '"Inter", sans-serif', 
+                    fontWeight: 800,
+                    background: 'linear-gradient(135deg, #0A2540 0%, #1E3A5F 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}>About Us</h2>
                 </div>
-                <h3 className="mb-3 font-bold text-lg" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>Our Goal</h3>
-                <p className="text-sm leading-relaxed" style={{ color: '#37474F', lineHeight: '1.6' }}>
-                  MyMedQL is a student-built healthcare project created with one clear goal: to make patient monitoring clearer, safer, and more accessible for both patients and healthcare staff.
-                </p>
-              </div>
+              </AnimatedSection>
 
-              <div className={`${sectionCard} p-6`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20` }}>
-                <div className="mb-4">
-                  <span className="block text-2xl" role="img" aria-label="philosophy">💡</span>
-                </div>
-                <h3 className="mb-3 font-bold text-lg" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>Philosophy</h3>
-                <p className="text-sm leading-relaxed" style={{ color: '#37474F', lineHeight: '1.6' }}>
-                  We believe technology should support care—not complicate it. That's why MyMedQL focuses on presenting vital health information in a simple, understandable way, helping staff respond quickly.
-                </p>
+              {/* Vision and Mission Cards */}
+              <div className="mb-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                {[
+                  { icon: "🎯", title: "Our Goal", text: "MyMedQL is a student-built healthcare project created with one clear goal: to make patient monitoring clearer, safer, and more accessible for both patients and healthcare staff.", ariaLabel: "goal" },
+                  { icon: "💡", title: "Philosophy", text: "We believe technology should support care—not complicate it. That's why MyMedQL focuses on presenting vital health information in a simple, understandable way, helping staff respond quickly.", ariaLabel: "philosophy" },
+                  { icon: "🤝", title: "The Team", text: "This project was developed by a small, multidisciplinary team of students interested in healthcare, technology, and social impact. Each member contributed to shaping MyMedQL into a meaningful application.", ariaLabel: "team" },
+                  { icon: "✨", title: "Our Design", text: '"Together, we designed MyMedQL as a practical learning project and a concept system that demonstrates how thoughtful software design can support patient care and clinical decision-making."', ariaLabel: "design", italic: true }
+                ].map((card, idx) => (
+                  <AnimatedSection key={card.title} delay={0.2 + idx * 0.1}>
+                    <div className={`${sectionCard} p-6 min-h-80 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-xl`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20`, backgroundColor: 'rgba(255, 255, 255, 0.85)' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = palette.brand; e.currentTarget.style.boxShadow = `0 8px 24px ${palette.brand}40`; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = palette.brand + '40'; e.currentTarget.style.boxShadow = `0 4px 12px ${palette.brand}20`; }}>
+                      <div className="mb-4 transition-transform duration-300">
+                        <span className="block text-2xl" role="img" aria-label={card.ariaLabel}>{card.icon}</span>
+                      </div>
+                      <h3 className="mb-3 font-bold text-lg transition-colors duration-300" style={{ color: palette.navy, fontFamily: '"Inter", sans-serif', fontWeight: 700 }}>{card.title}</h3>
+                      <p className={`text-sm leading-relaxed ${card.italic ? 'italic' : ''}`} style={{ color: card.italic ? palette.brand : '#37474F', lineHeight: '1.6', fontFamily: '"Inter", sans-serif' }}>
+                        {card.text}
+                      </p>
+                    </div>
+                  </AnimatedSection>
+                ))}
               </div>
-
-              <div className={`${sectionCard} p-6`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20` }}>
-                <div className="mb-4">
-                  <span className="block text-2xl" role="img" aria-label="team">🤝</span>
-                </div>
-                <h3 className="mb-3 font-bold text-lg" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>The Team</h3>
-                <p className="text-sm leading-relaxed" style={{ color: '#37474F', lineHeight: '1.6' }}>
-                  This project was developed by a small, multidisciplinary team of students interested in healthcare, technology, and social impact. Each member contributed to shaping MyMedQL into a meaningful application.
-                </p>
-              </div>
-
-              <div className={`${sectionCard} p-6`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20` }}>
-                <div className="mb-4">
-                  <span className="block text-2xl" role="img" aria-label="design">✨</span>
-                </div>
-                <h3 className="mb-3 font-bold text-lg" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>Our Design</h3>
-                <p className="text-sm italic leading-relaxed" style={{ color: palette.brand, lineHeight: '1.6' }}>
-                  "Together, we designed MyMedQL as a practical learning project and a concept system that demonstrates how thoughtful software design can support patient care and clinical decision-making."
-                </p>
-              </div>
-            </div>
 
             {/* Team Marquee */}
             <div className="overflow-hidden">
-              <h3 className="mb-8 text-center text-2xl font-bold" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>Meet the Team behind MyMedQL</h3>
+              <h3 className="mb-8 text-center text-2xl font-bold" style={{ color: palette.navy, fontFamily: '"Inter", sans-serif', fontWeight: 700 }}>Meet the Team behind MyMedQL</h3>
               <div className="relative w-full mask-gradient">
                 <div className="flex w-max gap-6 hover:pause-on-hover animate-scroll">
                   {[
-                    { name: "Cao Pham Minh Dang", role: "Backend Developer" },
-                    { name: "Ngo Dinh Khanh", role: "Frontend Developer" },
-                    { name: "Pham Dinh Hieu", role: "Database Engineer" },
-                    { name: "Nguyen Anh Duc", role: "DevOps / QA" },
+                    { name: "Cao Pham Minh Dang", role: "Database Engineer", image: "/Cao_Pham_Minh_Dang.jpg" },
+                    { name: "Ngo Dinh Khanh", role: "Backend Developer", image: "/Ngo_Dinh_Khanh.jpg" },
+                    { name: "Pham Dinh Hieu", role: "Backend Developer", image: "/Pham_Dinh_Hieu.jpg" },
+                    { name: "Nguyen Anh Duc", role: "Frontend Developer", image: "/Nguyen_Anh_Duc.jpg" },
                     // Duplicate for seamless loop
-                    { name: "Cao Pham Minh Dang", role: "Backend Developer" },
-                    { name: "Ngo Dinh Khanh", role: "Frontend Developer" },
-                    { name: "Pham Dinh Hieu", role: "Database Engineer" },
-                    { name: "Nguyen Anh Duc", role: "DevOps / QA" }
+                    { name: "Cao Pham Minh Dang", role: "Database Engineer", image: "/Cao_Pham_Minh_Dang.jpg" },
+                    { name: "Ngo Dinh Khanh", role: "Backend Developer", image: "/Ngo_Dinh_Khanh.jpg" },
+                    { name: "Pham Dinh Hieu", role: "Backend Developer", image: "/Pham_Dinh_Hieu.jpg" },
+                    { name: "Nguyen Anh Duc", role: "Frontend Developer", image: "/Nguyen_Anh_Duc.jpg" }
                   ].map((member, idx) => (
-                    <div key={idx} className={`${sectionCard} w-64 flex-shrink-0 p-6 transition hover:shadow-lg`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20` }}>
-                      <div className="h-12 w-12 rounded-full mb-4 flex items-center justify-center text-base font-bold" style={{ backgroundColor: palette.brand + '20', color: palette.brand }}>
-                        {member.name.charAt(0)}
-                      </div>
-                      <div className="font-bold truncate mb-1" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>{member.name}</div>
-                      <div className="text-xs font-semibold" style={{ color: palette.brand }}>{member.role}</div>
+                    <div key={idx} className={`${sectionCard} w-80 h-64 flex-shrink-0 p-6 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-xl flex flex-col items-center`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20`, backgroundColor: 'rgba(255, 255, 255, 0.85)' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = palette.brand; e.currentTarget.style.boxShadow = `0 8px 24px ${palette.brand}40`; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = palette.brand + '40'; e.currentTarget.style.boxShadow = `0 4px 12px ${palette.brand}20`; }}>
+                      <img 
+                        src={member.image} 
+                        alt={member.name}
+                        className="h-32 w-32 rounded-full mb-4 object-cover transition-transform duration-300 hover:scale-110"
+                        style={{ border: `3px solid ${palette.brand}40`, boxShadow: `0 4px 12px ${palette.brand}20` }}
+                      />
+                      <div className="font-bold truncate mb-1 transition-colors duration-300 text-center w-full" style={{ color: palette.navy, fontFamily: '"Inter", sans-serif', fontWeight: 600 }}>{member.name}</div>
+                      <div className="text-xs font-semibold transition-colors duration-300 text-center" style={{ color: palette.brand }}>{member.role}</div>
                     </div>
                   ))}
                 </div>
@@ -1131,54 +1092,111 @@ export default function Page() {
             </div>
           </div>
         </section>
+        </AnimatedSection>
 
         {/* FAQ */}
-        <section className="py-16" style={{ backgroundColor: '#FFFFFF' }}>
-          <div className="mx-auto max-w-6xl px-6">
-            <h3 className="text-2xl font-bold mb-8" style={{ color: palette.navy, fontFamily: 'system-ui, -apple-system, sans-serif' }}>FAQ</h3>
-            <div className="grid gap-4 md:grid-cols-2">
-              {faq.map((item) => (
-                <div key={item.q} className={`${sectionCard} p-6`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20` }}>
-                  <div className="text-sm font-semibold mb-2" style={{ color: palette.brand }}>{item.q}</div>
-                  <p className="text-sm leading-relaxed" style={{ color: '#37474F', lineHeight: '1.6' }}>{item.a}</p>
-                </div>
-              ))}
+        <AnimatedSection>
+          <section className="py-20" style={{ 
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.9) 100%)',
+            position: 'relative'
+          }}>
+            <div className="mx-auto max-w-6xl px-6">
+              <AnimatedSection delay={0.1}>
+                <h3 className="text-4xl font-bold mb-8 text-center" style={{ 
+                  color: '#0A2540', 
+                  fontFamily: '"Inter", sans-serif', 
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, #0A2540 0%, #1E3A5F 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}>FAQ</h3>
+              </AnimatedSection>
+              <div className="grid gap-4 md:grid-cols-2">
+                {faq.map((item, idx) => (
+                  <AnimatedSection key={item.q} delay={0.2 + idx * 0.1}>
+                    <div className={`${sectionCard} p-6 h-40 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-xl`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20`, backgroundColor: 'rgba(255, 255, 255, 0.85)' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = palette.brand; e.currentTarget.style.boxShadow = `0 8px 24px ${palette.brand}40`; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = palette.brand + '40'; e.currentTarget.style.boxShadow = `0 4px 12px ${palette.brand}20`; }}>
+                      <div className="text-sm font-semibold mb-2 transition-colors duration-300" style={{ color: palette.brand, fontFamily: '"Inter", sans-serif' }}>{item.q}</div>
+                      <p className="text-sm leading-relaxed" style={{ color: '#37474F', lineHeight: '1.6', fontFamily: '"Inter", sans-serif' }}>{item.a}</p>
+                    </div>
+                  </AnimatedSection>
+                ))}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </AnimatedSection>
 
-        {/* CTA */}
-        <section className="mx-auto max-w-6xl px-6 pb-20">
-          <div className="rounded-xl px-8 py-12 text-white" style={{ backgroundColor: palette.brand, boxShadow: `0 8px 24px ${palette.brand}50` }}>
-            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h3 className="text-2xl font-bold mb-2" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>Spin it up in minutes.</h3>
-                <p className="text-base" style={{ color: '#B2EBF2' }}>
-                  Start a complete demo environment in minutes with everything preconfigured.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <button className="rounded-lg bg-white px-6 py-3 text-sm font-semibold transition-all hover:opacity-90" style={{ color: palette.brand }}>Run with Docker</button>
-                <Link href="/roles" className="rounded-lg border px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10" style={{ borderColor: "#FFFFFF" }}>
-                  Get Started
-                </Link>
+        {/* Contact Section */}
+        <AnimatedSection>
+          <section id="contact" className="py-20" style={{ 
+            background: 'linear-gradient(135deg, rgba(224, 247, 250, 0.9) 0%, rgba(178, 235, 242, 0.7) 100%)',
+            position: 'relative'
+          }}>
+            <div className="mx-auto max-w-4xl px-6">
+              <AnimatedSection delay={0.1}>
+                <div className="text-center mb-12">
+                  <h2 className="text-4xl font-bold mb-4 text-center" style={{ 
+                    color: '#0A2540', 
+                    fontFamily: '"Inter", sans-serif', 
+                    fontWeight: 800,
+                    background: 'linear-gradient(135deg, #0A2540 0%, #1E3A5F 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}>Get in Touch</h2>
+                  <p className="text-base leading-relaxed" style={{ color: '#37474F', lineHeight: '1.7', fontFamily: '"Inter", sans-serif' }}>
+                    Have questions or want to learn more about MyMedQL? We'd love to hear from you.
+                  </p>
+                </div>
+              </AnimatedSection>
+              <div className="grid gap-8 md:grid-cols-2">
+                <AnimatedSection delay={0.2}>
+                  <div className={`${sectionCard} p-8 h-64 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-xl`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20`, backgroundColor: 'rgba(255, 255, 255, 0.85)' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = palette.brand; e.currentTarget.style.boxShadow = `0 8px 24px ${palette.brand}40`; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = palette.brand + '40'; e.currentTarget.style.boxShadow = `0 4px 12px ${palette.brand}20`; }}>
+                    <div className="mb-4 transition-transform duration-300">
+                      <span className="text-3xl inline-block" role="img" aria-label="email">📧</span>
+                    </div>
+                    <h3 className="text-lg font-semibold mb-3 transition-colors duration-300" style={{ color: palette.navy, fontFamily: '"Inter", sans-serif', fontWeight: 600 }}>Email Us</h3>
+                    <p className="text-sm leading-relaxed mb-4" style={{ color: '#37474F', lineHeight: '1.6', fontFamily: '"Inter", sans-serif' }}>
+                      Send us an email and we'll get back to you as soon as possible.
+                    </p>
+                    <a href="mailto:contact@mymedql.com" className="text-sm font-medium transition-all duration-300 hover:underline hover:opacity-80" style={{ color: palette.brand, fontFamily: '"Inter", sans-serif' }}>
+                      contact@mymedql.com
+                    </a>
+                  </div>
+                </AnimatedSection>
+                <AnimatedSection delay={0.3}>
+                  <div className={`${sectionCard} p-8 h-64 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-xl`} style={{ borderColor: palette.brand + '40', boxShadow: `0 4px 12px ${palette.brand}20`, backgroundColor: 'rgba(255, 255, 255, 0.85)' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = palette.brand; e.currentTarget.style.boxShadow = `0 8px 24px ${palette.brand}40`; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = palette.brand + '40'; e.currentTarget.style.boxShadow = `0 4px 12px ${palette.brand}20`; }}>
+                    <div className="mb-4 transition-transform duration-300">
+                      <img src="/github.png" alt="GitHub" className="w-12 h-12" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-3 transition-colors duration-300" style={{ color: palette.navy, fontFamily: '"Inter", sans-serif', fontWeight: 600 }}>GitHub</h3>
+                    <p className="text-sm leading-relaxed mb-4" style={{ color: '#37474F', lineHeight: '1.6', fontFamily: '"Inter", sans-serif' }}>
+                      Check out our open-source project and contribute to the codebase.
+                    </p>
+                    <a href="https://github.com/minhdang-DS/MyMedQL" target="_blank" rel="noopener noreferrer" className="text-sm font-medium transition-all duration-300 hover:underline hover:opacity-80" style={{ color: palette.brand, fontFamily: '"Inter", sans-serif' }}>
+                      github.com/minhdang-DS/MyMedQL
+                    </a>
+                  </div>
+                </AnimatedSection>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </AnimatedSection>
+
       </main >
 
       <footer className="border-t bg-white" style={{ borderColor: palette.border }}>
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-8 text-sm md:flex-row md:items-center md:justify-between" style={{ color: palette.navy }}>
           <div className="font-medium">MyMedQL · Real-time patient vital monitoring</div>
           <div className="flex flex-wrap gap-6">
-            <a href="#docs" className="hover:opacity-70 transition-opacity" style={{ color: palette.navy }}>Docs</a>
-            <a href="#demo" className="hover:opacity-70 transition-opacity" style={{ color: palette.navy }}>Demo</a>
-            <a href="#features" className="hover:opacity-70 transition-opacity" style={{ color: palette.navy }}>Features</a>
-            <a href="#how" className="hover:opacity-70 transition-opacity" style={{ color: palette.navy }}>How it works</a>
+            <a href="#docs" className="transition-all duration-300 hover:opacity-70 hover:underline hover:underline-offset-4" style={{ color: palette.navy }}>Docs</a>
+            <a href="#demo" className="transition-all duration-300 hover:opacity-70 hover:underline hover:underline-offset-4" style={{ color: palette.navy }}>Demo</a>
+            <a href="#features" className="transition-all duration-300 hover:opacity-70 hover:underline hover:underline-offset-4" style={{ color: palette.navy }}>Features</a>
+            <a href="#how" className="transition-all duration-300 hover:opacity-70 hover:underline hover:underline-offset-4" style={{ color: palette.navy }}>How it works</a>
           </div>
         </div>
       </footer>
+      </div>
     </div >
   );
 }

@@ -1,7 +1,8 @@
+"use client";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { login } from "../../../../services/auth";
+import { login } from "../../../services/auth";
 
 // Medical Blue Palette - matching the design system
 const palette = {
@@ -161,8 +162,8 @@ export default function StaffLoginPage() {
                 setFormData({ email: "", password: "", confirmPassword: "", name: "", employeeId: "" });
               }}
               className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${isLogin
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
                 }`}
               style={isLogin ? { color: palette.primary } : {}}
             >
@@ -175,8 +176,8 @@ export default function StaffLoginPage() {
                 setFormData({ email: "", password: "", confirmPassword: "", name: "", employeeId: "" });
               }}
               className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${!isLogin
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
                 }`}
               style={!isLogin ? { color: palette.primary } : {}}
             >

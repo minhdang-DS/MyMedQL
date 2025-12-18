@@ -35,41 +35,75 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, Any
         )
     
     # Extract user info from token
-    staff_id = payload.get("sub")  # Subject (user ID)
-    if not staff_id:
+    # Extract user info from token
+    sub = payload.get("sub")
+    role = payload.get("role", "staff") # Default to staff if not specified
+    
+    if not sub:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Verify user still exists in database
     try:
         engine = get_engine()
         with engine.connect() as conn:
-            result = conn.execute(
-                text("""
-                    SELECT staff_id, name, email, role 
-                    FROM staff 
-                    WHERE staff_id = :staff_id
-                """),
-                {"staff_id": int(staff_id)}
-            )
-            user = result.fetchone()
-            
-            if not user:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="User not found",
-                    headers={"WWW-Authenticate": "Bearer"},
+            if role == "patient":
+                # Handle patient
+                patient_id = payload.get("id")
+                if not patient_id:
+                    # Fallback to parsing sub if id not in payload
+                    if sub.startswith("patient_"):
+                        patient_id = int(sub.replace("patient_", ""))
+                    else:
+                        patient_id = int(sub)
+                
+                result = conn.execute(
+                    text("SELECT patient_id, first_name, last_name FROM patients WHERE patient_id = :pid"),
+                    {"pid": patient_id}
                 )
-            
-            return {
-                "staff_id": user.staff_id,
-                "name": user.name,
-                "email": user.email,
-                "role": user.role
-            }
+                user = result.fetchone()
+                
+                if not user:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Patient not found",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
+                
+                return {
+                    "id": user.patient_id,
+                    "name": f"{user.first_name} {user.last_name}",
+                    "role": "patient"
+                }
+            else:
+                # Handle staff
+                # sub is staff_id
+                result = conn.execute(
+                    text("""
+                        SELECT staff_id, name, email, role 
+                        FROM staff 
+                        WHERE staff_id = :staff_id
+                    """),
+                    {"staff_id": int(sub)}
+                )
+                user = result.fetchone()
+                
+                if not user:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="User not found",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
+                
+                return {
+                    "id": user.staff_id, # Normalize to id
+                    "staff_id": user.staff_id, # Keep for compatibility
+                    "name": user.name,
+                    "email": user.email,
+                    "role": user.role
+                }
     except HTTPException:
         raise
     except Exception as e:

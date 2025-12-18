@@ -1,4 +1,5 @@
 const API_BASE_URL = 'http://localhost:8000/api';
+import { getToken } from './auth';
 
 /**
  * Fetch all patients
@@ -18,6 +19,34 @@ export async function getPatients() {
 }
 
 /**
+ * Fetch single patient details
+ * @param {number} patientId
+ * @returns {Promise<Object>} Patient details
+ */
+export async function getPatient(patientId) {
+    try {
+        const token = getToken();
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/patients/${patientId}`, {
+            headers: headers
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch patient details');
+        }
+        return await response.json();
+    } catch (error) {
+        console.error(`Error fetching patient ${patientId}:`, error);
+        throw error;
+    }
+}
+
+/**
  * Fetch patient history
  * @param {number} patientId
  * @param {number} limit
@@ -25,7 +54,17 @@ export async function getPatients() {
  */
 export async function getPatientHistory(patientId, limit = 100) {
     try {
-        const response = await fetch(`${API_BASE_URL}/patients/${patientId}/history?limit=${limit}`);
+        const token = getToken();
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/patients/${patientId}/history?limit=${limit}`, {
+            headers: headers
+        });
         if (!response.ok) {
             throw new Error('Failed to fetch patient history');
         }

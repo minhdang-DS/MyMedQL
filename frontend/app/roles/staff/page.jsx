@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import ProtectedRoute from "../../../../components/ProtectedRoute";
+import ProtectedRoute from "../../../components/ProtectedRoute";
 
 const palette = {
   primary: "#0284c7", // Sky 600

@@ -45,6 +45,7 @@ async def list_patients() -> List[Dict[str, Any]]:
 
 @router.get("/{patient_id}")
 async def get_patient(patient_id: int) -> Dict[str, Any]:
+    print(f"DEBUG: get_patient called for {patient_id}")
     """
     Get patient details by ID.
     Note: medical_history is encrypted and not returned.
@@ -80,7 +81,12 @@ async def get_patient(patient_id: int) -> Dict[str, Any]:
 
 
 @router.get("/{patient_id}/history")
-async def get_patient_history(patient_id: int, limit: int = 100) -> List[Dict[str, Any]]:
+async def get_patient_history(
+    patient_id: int, 
+    limit: int = 100,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> List[Dict[str, Any]]:
+    print(f"DEBUG: get_patient_history called for {patient_id}")
     """
     Get patient vital signs history.
     
@@ -95,6 +101,15 @@ async def get_patient_history(patient_id: int, limit: int = 100) -> List[Dict[st
     limit = max(1, min(limit, 1000))
     
     try:
+        # Access Control:
+        # - Staff can access any patient
+        # - Patients can only access their own data
+        if current_user["role"] == "patient" and current_user["id"] != patient_id:
+             raise HTTPException(
+                status_code=403, 
+                detail="You do not have permission to access this patient's history"
+            )
+
         engine = get_engine()
         with engine.connect() as conn:
             # First verify patient exists

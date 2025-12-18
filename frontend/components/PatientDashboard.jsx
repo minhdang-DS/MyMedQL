@@ -2,8 +2,8 @@
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { theme } from "../app/data/patients";
-import { getPatientHistory } from "../app/services/api";
-import useWebSocket from "../app/hooks/useWebSocket";
+import { getPatientHistory, getPatient } from "../app/services/api";
+import { useWebSocket } from "../app/hooks/useWebSocket";
 
 // --- ECG Dashboard Component ---
 // --- ECG Dashboard Component ---
@@ -286,7 +286,14 @@ export default function PatientDashboard({ patientId, isStaffView }) {
     // Fetch initial history
     useEffect(() => {
         async function fetchData() {
+            console.log("Fetching data for patientId:", patientId);
             try {
+                // Fetch patient details for name
+                const patientData = await getPatient(patientId);
+                console.log("Patient Data:", patientData);
+                const name = patientData ? `${patientData.first_name} ${patientData.last_name}` : `Patient ${patientId}`;
+                console.log("Computed Name:", name);
+
                 const history = await getPatientHistory(patientId, 1);
                 if (history && history.length > 0) {
                     const latest = history[0];
@@ -298,14 +305,16 @@ export default function PatientDashboard({ patientId, isStaffView }) {
                         temperature: latest.temperature_c,
                         respiration: latest.respiration
                     });
-                    // Update user info if available in history or separate endpoint
-                    // For now, we might need to fetch patient details separately if name is needed
-                    // But history endpoint might not return name.
-                    // Let's assume we can get basic info or use a placeholder.
-                    setCurrentUser(prev => ({ ...prev, name: `Patient ${patientId}`, room: "101" }));
+
+                    setCurrentUser(prev => ({ ...prev, name: name, room: "101" }));
+                } else {
+                    // Even if no history, set the name
+                    setCurrentUser(prev => ({ ...prev, name: name, room: "101" }));
                 }
             } catch (err) {
-                console.error("Failed to fetch patient history:", err);
+                console.error("Failed to fetch patient data:", err);
+                // Fallback name with error for debugging
+                setCurrentUser(prev => ({ ...prev, name: `Error: ${err.message}`, room: "101" }));
             }
         }
         fetchData();

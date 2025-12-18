@@ -67,7 +67,7 @@ export default function StaffPage() {
   };
 
   return (
-    <div className="min-h-screen font-sans" style={{ backgroundColor: palette.surface, color: "#334155" }}>
+    <div className="min-h-screen" style={{ backgroundColor: palette.surface, color: "#334155", fontFamily: '"Inter", sans-serif' }}>
 
       {/* Sticky Header */}
       <header className="sticky top-0 z-30 border-b bg-white shadow-sm transition-all" style={{ borderColor: palette.border }}>
@@ -75,7 +75,7 @@ export default function StaffPage() {
           <div className="flex items-center gap-6">
             {/* Title */}
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-800">Patient Monitor</h1>
+              <h1 className="text-xl font-bold tracking-tight text-slate-800" style={{ fontFamily: '"Inter", sans-serif' }}>Patient Monitor</h1>
               <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>

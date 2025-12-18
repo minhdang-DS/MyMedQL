@@ -319,7 +319,7 @@ export default function PatientDashboard({ patientId, isStaffView }) {
     };
 
     return (
-        <div className="mx-auto max-w-5xl px-4 py-8 md:px-6 md:py-10">
+        <div className="mx-auto max-w-5xl px-4 py-8 md:px-6 md:py-10" style={{ fontFamily: '"Inter", sans-serif' }}>
 
             {/* Toggle (Hidden/dev feature for demo) */}
             <div className="fixed bottom-4 right-4 opacity-50 hover:opacity-100 transition-opacity z-50">

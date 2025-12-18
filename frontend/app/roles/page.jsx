@@ -14,8 +14,27 @@ const palette = {
 
 export default function RoleSelectPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: `linear-gradient(135deg, ${palette.background} 0%, #FFFFFF 100%)` }}>
-      <div className="w-full max-w-5xl">
+    <div 
+      className="min-h-screen flex items-center justify-center p-6 relative" 
+      style={{ 
+        backgroundImage: 'url(/background.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+        fontFamily: '"Inter", sans-serif'
+      }}
+    >
+      {/* Overlay to make background faint - matching landing page */}
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.65)' // Same overlay as landing page
+        }}
+      />
+      
+      {/* Content wrapper with relative positioning */}
+      <div className="relative z-10 w-full max-w-5xl mx-auto">
 
         {/* Header */}
         <div className="text-center mb-12 space-y-3">
@@ -45,7 +64,7 @@ export default function RoleSelectPage() {
         <div className="grid gap-8 md:grid-cols-2 max-w-4xl mx-auto">
 
           {/* Staff Card */}
-          <Link href="/roles/staff" className="group relative overflow-hidden rounded-3xl bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border" style={{ borderColor: palette.border }}>
+          <Link href="/roles/staff/login" className="group relative overflow-hidden rounded-3xl bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border" style={{ borderColor: palette.border }}>
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
 
             <div className="flex items-start justify-between mb-6">
@@ -86,7 +105,7 @@ export default function RoleSelectPage() {
           </Link>
 
           {/* Patient Card */}
-          <Link href="/roles/patient" className="group relative overflow-hidden rounded-3xl bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border" style={{ borderColor: palette.border }}>
+          <Link href="/roles/patient/login" className="group relative overflow-hidden rounded-3xl bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border" style={{ borderColor: palette.border }}>
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-teal-500"></div>
 
             <div className="flex items-start justify-between mb-6">

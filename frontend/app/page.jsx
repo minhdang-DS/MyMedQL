@@ -164,6 +164,11 @@ const MedicalMonitoringDashboard = memo(function MedicalMonitoringDashboard() {
       path += ` L${endX},${baseY}`;
     }
     
+    // Ensure path extends to full width
+    if (currentX < endX) {
+      path += ` L${endX},${baseY}`;
+    }
+    
     return path;
   }, []);
 
@@ -226,6 +231,37 @@ const MedicalMonitoringDashboard = memo(function MedicalMonitoringDashboard() {
     setHeartRate(prev => {
       const change = Math.floor(Math.random() * 5) - 2;
       return Math.max(72, Math.min(108, prev + change));
+    });
+
+    setRespirationRate(prev => {
+      const change = Math.floor(Math.random() * 3) - 1;
+      return Math.max(16, Math.min(20, prev + change));
+    });
+  }, []);
+
+  // Helper function to update vital signs
+  const updateVitalSigns = useCallback(() => {
+    setHeartRate(prev => {
+      const change = Math.floor(Math.random() * 5) - 2;
+      return Math.max(72, Math.min(108, prev + change));
+    });
+
+    const spo2Values = [96, 97, 98, 98, 99];
+    setSpo2(spo2Values[Math.floor(Math.random() * spo2Values.length)]);
+
+    setSystolic(prev => {
+      const change = Math.floor(Math.random() * 4) - 2;
+      return Math.max(120, Math.min(135, prev + change));
+    });
+
+    setDiastolic(prev => {
+      const change = Math.floor(Math.random() * 3) - 1;
+      return Math.max(75, Math.min(85, prev + change));
+    });
+
+    setTemperature(prev => {
+      const change = (Math.random() - 0.5) * 0.15;
+      return Math.max(36.5, Math.min(37.2, prev + change));
     });
 
     setRespirationRate(prev => {

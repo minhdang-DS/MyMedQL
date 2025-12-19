@@ -35,11 +35,13 @@ CREATE TABLE IF NOT EXISTS patients (
     gender ENUM('male', 'female', 'other', 'unknown') DEFAULT 'unknown',
     contact_info JSON DEFAULT NULL,              -- Phone, emergency contacts, etc.
     password_hash CHAR(60) DEFAULT NULL,         -- bcrypt hash for patient login
+    room_id VARCHAR(50) DEFAULT NULL,            -- Room identifier (e.g., "201-A", "305-ICU")
     medical_history VARBINARY(8192) DEFAULT NULL, -- Encrypted bytes; encrypt in app before storing
     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     PRIMARY KEY (patient_id),
-    INDEX idx_patients_name (last_name, first_name)
+    INDEX idx_patients_name (last_name, first_name),
+    INDEX idx_patients_room (room_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
@@ -141,33 +143,21 @@ CREATE TABLE IF NOT EXISTS device_assignments (
 -- ----------------------------------------------------------------------------
 -- Thresholds Table
 -- ----------------------------------------------------------------------------
--- Stores versioned thresholds for vital signs monitoring.
--- Supports both global (patient_id IS NULL) and patient-specific thresholds.
--- Patient-specific thresholds take precedence over global ones.
+-- Stores thresholds for vital signs monitoring and alert generation.
+-- Type: 'warning' or 'danger' - determines alert severity
+-- These thresholds are used to check patient vitals and create alerts.
 CREATE TABLE IF NOT EXISTS thresholds (
     threshold_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     name VARCHAR(64) NOT NULL,                  -- e.g., 'heart_rate', 'spo2', 'temperature_c', 'bp_systolic'
-    min_value DOUBLE DEFAULT NULL,
-    max_value DOUBLE DEFAULT NULL,
-    unit VARCHAR(32) DEFAULT NULL,
-    patient_id BIGINT UNSIGNED DEFAULT NULL,    -- NULL => global threshold, otherwise patient-specific
-    effective_from DATETIME(6) NOT NULL DEFAULT '1970-01-01 00:00:00',
-    effective_to DATETIME(6) DEFAULT NULL,      -- NULL means currently effective
-    created_by INT UNSIGNED DEFAULT NULL,
+    type ENUM('warning', 'danger') NOT NULL,   -- Alert type: warning or danger
+    min_value DOUBLE DEFAULT NULL,             -- Minimum acceptable value (NULL if no minimum)
+    max_value DOUBLE DEFAULT NULL,             -- Maximum acceptable value (NULL if no maximum)
+    updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    notes TEXT DEFAULT NULL,
     PRIMARY KEY (threshold_id),
-    CONSTRAINT fk_thresholds_patient 
-        FOREIGN KEY (patient_id) 
-        REFERENCES patients(patient_id) 
-        ON DELETE CASCADE,
-    CONSTRAINT fk_thresholds_staff 
-        FOREIGN KEY (created_by) 
-        REFERENCES staff(staff_id) 
-        ON DELETE SET NULL,
+    UNIQUE KEY uk_thresholds_name_type (name, type),  -- Unique constraint on (name, type) combination
     INDEX idx_thresholds_name (name),
-    INDEX idx_thresholds_patient_name (patient_id, name),
-    INDEX idx_thresholds_effective (name, effective_from, effective_to)
+    INDEX idx_thresholds_type (type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------

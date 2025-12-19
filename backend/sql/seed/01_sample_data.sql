@@ -43,19 +43,19 @@ USE `mymedql`;
 -- IMPORTANT: password_hash is NOT set in this INSERT. Patient passwords are set
 --            automatically by seed_patient_auth.sql which runs after this file.
 
-INSERT INTO patients (first_name, last_name, dob, gender, contact_info, medical_history) VALUES
+INSERT INTO patients (first_name, last_name, dob, gender, contact_info, room_id, medical_history) VALUES
     -- ('John', 'Doe', '1980-05-15', 'male', 
     --  JSON_OBJECT('phone', '+1-555-0101', 'email', 'john.doe@example.com', 
     --              'emergency_contact', JSON_OBJECT('name', 'Jane Doe', 'phone', '+1-555-0102')), 
-    --  NULL),
+    --  '201-A', NULL),
     ('Jane', 'Smith', '1975-08-22', 'female',
      JSON_OBJECT('phone', '+1-555-0201', 'email', 'jane.smith@example.com',
                  'emergency_contact', JSON_OBJECT('name', 'John Smith', 'phone', '+1-555-0202')),
-     NULL),
+     '201-A', NULL),
     ('Robert', 'Johnson', '1990-12-03', 'male',
      JSON_OBJECT('phone', '+1-555-0301', 'email', 'robert.johnson@example.com',
                  'emergency_contact', JSON_OBJECT('name', 'Mary Johnson', 'phone', '+1-555-0302')),
-     NULL);
+     '305-ICU', NULL);
 
 -- ----------------------------------------------------------------------------
 -- Example Device Records

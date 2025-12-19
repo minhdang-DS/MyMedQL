@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS patients (
     dob DATE DEFAULT NULL,
     gender ENUM('male', 'female', 'other', 'unknown') DEFAULT 'unknown',
     contact_info JSON DEFAULT NULL,              -- Phone, emergency contacts, etc.
+    password_hash CHAR(60) DEFAULT NULL,         -- bcrypt hash for patient login
     medical_history VARBINARY(8192) DEFAULT NULL, -- Encrypted bytes; encrypt in app before storing
     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),

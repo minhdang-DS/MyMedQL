@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { login } from "../../../services/auth";
 
 // Medical Blue Palette - matching the design system
 const palette = {
@@ -42,19 +43,19 @@ export default function StaffLoginPage() {
   // Validate form data
   const validate = () => {
     const newErrors = {};
-    
+
     if (!formData.email) {
       newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = "Email is invalid";
     }
-    
+
     if (!formData.password) {
       newErrors.password = "Password is required";
     } else if (formData.password.length < 6) {
       newErrors.password = "Password must be at least 6 characters";
     }
-    
+
     if (!isLogin) {
       if (!formData.name) {
         newErrors.name = "Full name is required";
@@ -66,7 +67,7 @@ export default function StaffLoginPage() {
         newErrors.confirmPassword = "Passwords do not match";
       }
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -74,25 +75,34 @@ export default function StaffLoginPage() {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validate()) {
       return;
     }
-    
+
     setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
+    setErrors({}); // Clear previous errors
+
+    try {
+      if (isLogin) {
+        await login(formData.email, formData.password);
+        // Redirect to staff dashboard after successful login
+        router.push("/roles/staff");
+      } else {
+        // Signup not implemented in backend yet for this demo
+        setErrors({ form: "Sign up is not currently supported. Please log in." });
+      }
+    } catch (err) {
+      setErrors({ form: err.message || "Authentication failed" });
+    } finally {
       setIsLoading(false);
-      // Redirect to staff dashboard after successful login/signup
-      router.push("/roles/staff");
-    }, 1500);
+    }
   };
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center p-6 relative" 
-      style={{ 
+    <div
+      className="min-h-screen flex items-center justify-center p-6 relative"
+      style={{
         backgroundImage: 'url(/background.jpg)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
@@ -102,18 +112,18 @@ export default function StaffLoginPage() {
       }}
     >
       {/* Overlay to make background faint - matching landing page */}
-      <div 
+      <div
         className="absolute inset-0 pointer-events-none"
         style={{
           backgroundColor: 'rgba(255, 255, 255, 0.65)'
         }}
       />
-      
+
       {/* Content wrapper */}
       <div className="relative z-10 w-full max-w-md">
         {/* Back Button */}
-        <Link 
-          href="/roles" 
+        <Link
+          href="/roles"
           className="inline-flex items-center gap-2 mb-6 text-sm font-medium transition-colors hover:text-blue-600"
           style={{ color: palette.textLight }}
         >
@@ -137,8 +147,8 @@ export default function StaffLoginPage() {
               {isLogin ? "Staff Login" : "Staff Sign Up"}
             </h1>
             <p className="text-sm" style={{ color: palette.textLight }}>
-              {isLogin 
-                ? "Access your medical staff dashboard" 
+              {isLogin
+                ? "Access your medical staff dashboard"
                 : "Create your medical staff account"}
             </p>
           </div>
@@ -151,11 +161,10 @@ export default function StaffLoginPage() {
                 setErrors({});
                 setFormData({ email: "", password: "", confirmPassword: "", name: "", employeeId: "" });
               }}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${
-                isLogin 
-                  ? "bg-white text-blue-600 shadow-sm" 
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${isLogin
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+                }`}
               style={isLogin ? { color: palette.primary } : {}}
             >
               Login
@@ -166,11 +175,10 @@ export default function StaffLoginPage() {
                 setErrors({});
                 setFormData({ email: "", password: "", confirmPassword: "", name: "", employeeId: "" });
               }}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${
-                !isLogin 
-                  ? "bg-white text-blue-600 shadow-sm" 
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${!isLogin
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+                }`}
               style={!isLogin ? { color: palette.primary } : {}}
             >
               Sign Up
@@ -179,6 +187,11 @@ export default function StaffLoginPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
+            {errors.form && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm">
+                {errors.form}
+              </div>
+            )}
             {/* Name field (only for signup) */}
             {!isLogin && (
               <div>
@@ -191,10 +204,9 @@ export default function StaffLoginPage() {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 ${
-                    errors.name ? "border-red-300 focus:ring-red-200" : "focus:ring-blue-200"
-                  }`}
-                  style={{ 
+                  className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 ${errors.name ? "border-red-300 focus:ring-red-200" : "focus:ring-blue-200"
+                    }`}
+                  style={{
                     borderColor: errors.name ? palette.error : palette.border,
                     fontFamily: '"Inter", sans-serif'
                   }}
@@ -218,10 +230,9 @@ export default function StaffLoginPage() {
                   name="employeeId"
                   value={formData.employeeId}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 ${
-                    errors.employeeId ? "border-red-300 focus:ring-red-200" : "focus:ring-blue-200"
-                  }`}
-                  style={{ 
+                  className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 ${errors.employeeId ? "border-red-300 focus:ring-red-200" : "focus:ring-blue-200"
+                    }`}
+                  style={{
                     borderColor: errors.employeeId ? palette.error : palette.border,
                     fontFamily: '"Inter", sans-serif'
                   }}
@@ -244,10 +255,9 @@ export default function StaffLoginPage() {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 ${
-                  errors.email ? "border-red-300 focus:ring-red-200" : "focus:ring-blue-200"
-                }`}
-                style={{ 
+                className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 ${errors.email ? "border-red-300 focus:ring-red-200" : "focus:ring-blue-200"
+                  }`}
+                style={{
                   borderColor: errors.email ? palette.error : palette.border,
                   fontFamily: '"Inter", sans-serif'
                 }}
@@ -269,10 +279,9 @@ export default function StaffLoginPage() {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 ${
-                  errors.password ? "border-red-300 focus:ring-red-200" : "focus:ring-blue-200"
-                }`}
-                style={{ 
+                className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 ${errors.password ? "border-red-300 focus:ring-red-200" : "focus:ring-blue-200"
+                  }`}
+                style={{
                   borderColor: errors.password ? palette.error : palette.border,
                   fontFamily: '"Inter", sans-serif'
                 }}
@@ -295,10 +304,9 @@ export default function StaffLoginPage() {
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 ${
-                    errors.confirmPassword ? "border-red-300 focus:ring-red-200" : "focus:ring-blue-200"
-                  }`}
-                  style={{ 
+                  className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 ${errors.confirmPassword ? "border-red-300 focus:ring-red-200" : "focus:ring-blue-200"
+                    }`}
+                  style={{
                     borderColor: errors.confirmPassword ? palette.error : palette.border,
                     fontFamily: '"Inter", sans-serif'
                   }}
@@ -313,8 +321,8 @@ export default function StaffLoginPage() {
             {/* Forgot Password link (only for login) */}
             {isLogin && (
               <div className="flex justify-end">
-                <Link 
-                  href="#" 
+                <Link
+                  href="#"
                   className="text-sm font-medium transition-colors hover:text-blue-600"
                   style={{ color: palette.primary }}
                 >
@@ -328,7 +336,7 @@ export default function StaffLoginPage() {
               type="submit"
               disabled={isLoading}
               className="w-full py-3 px-4 rounded-lg font-semibold text-white transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95"
-              style={{ 
+              style={{
                 backgroundColor: palette.primary,
                 fontFamily: '"Inter", sans-serif'
               }}

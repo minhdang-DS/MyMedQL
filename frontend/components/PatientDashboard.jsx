@@ -1,17 +1,31 @@
 "use client";
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { theme, patientDatabase } from "../app/data/patients";
+import { theme } from "../app/data/patients";
+import { getPatientHistory, getPatient } from "../app/services/api";
+import { useWebSocket } from "../app/hooks/useWebSocket";
 
 // --- ECG Dashboard Component ---
-function MedicalMonitoringDashboard({ isCritical }) {
-    // State for vitals - initialized based on prop
-    const [heartRate, setHeartRate] = useState(isCritical ? 128 : 72);
-    const [spo2, setSpo2] = useState(isCritical ? 90 : 98);
-    const [systolic, setSystolic] = useState(isCritical ? 145 : 118);
-    const [diastolic, setDiastolic] = useState(isCritical ? 92 : 76);
-    const [temperature, setTemperature] = useState(isCritical ? 37.2 : 36.6);
-    const [respirationRate, setRespirationRate] = useState(isCritical ? 24 : 16);
+// --- ECG Dashboard Component ---
+function MedicalMonitoringDashboard({ isCritical, vitals }) {
+    // State for vitals - initialized based on prop or passed vitals
+    const [heartRate, setHeartRate] = useState(vitals?.heartRate || (isCritical ? 128 : 72));
+    const [spo2, setSpo2] = useState(vitals?.spo2 || (isCritical ? 90 : 98));
+    const [systolic, setSystolic] = useState(vitals?.bpSystolic || (isCritical ? 145 : 118));
+    const [diastolic, setDiastolic] = useState(vitals?.bpDiastolic || (isCritical ? 92 : 76));
+    const [temperature, setTemperature] = useState(vitals?.temperature || (isCritical ? 37.2 : 36.6));
+    const [respirationRate, setRespirationRate] = useState(vitals?.respiration || (isCritical ? 24 : 16));
+
+    useEffect(() => {
+        if (vitals) {
+            setHeartRate(vitals.heartRate);
+            setSpo2(vitals.spo2);
+            setSystolic(vitals.bpSystolic);
+            setDiastolic(vitals.bpDiastolic);
+            setTemperature(vitals.temperature);
+            setRespirationRate(vitals.respiration);
+        }
+    }, [vitals]);
 
     // Waveform state
     const [ecgPath, setEcgPath] = useState('');
@@ -92,8 +106,11 @@ function MedicalMonitoringDashboard({ isCritical }) {
         return path;
     }, [isCritical]);
 
-    // Vitals Fluctuation Loop
+    // Vitals Fluctuation Loop - REMOVED in favor of real data
+    // Kept only if no vitals provided for fallback demo
     useEffect(() => {
+        if (vitals) return; // Skip simulation if real data exists
+
         const interval = setInterval(() => {
             if (isCritical) {
                 setHeartRate(p => Math.min(140, Math.max(120, p + (Math.random() > 0.5 ? 1 : -1))));
@@ -106,7 +123,7 @@ function MedicalMonitoringDashboard({ isCritical }) {
             }
         }, 2000);
         return () => clearInterval(interval);
-    }, [isCritical]);
+    }, [isCritical, vitals]);
 
     // Size & Path Init
     const updateSizes = useCallback(() => {
@@ -261,14 +278,68 @@ function MedicalMonitoringDashboard({ isCritical }) {
 
 // --- Main Reusable Patient Content Component ---
 export default function PatientDashboard({ patientId, isStaffView }) {
-    const [currentUser, setCurrentUser] = useState(patientDatabase[patientId] || patientDatabase["221"]);
-    const [isCritical, setIsCritical] = useState(currentUser.isCritical);
+    const [currentUser, setCurrentUser] = useState({ name: "Loading...", room: "...", status: "Stable", isCritical: false });
+    const [isCritical, setIsCritical] = useState(false);
+    const [vitals, setVitals] = useState(null);
+    const { lastMessage } = useWebSocket();
 
+    // Fetch initial history
     useEffect(() => {
-        const user = patientDatabase[patientId] || patientDatabase["221"];
-        setCurrentUser(user);
-        setIsCritical(user.isCritical);
+        async function fetchData() {
+            console.log("Fetching data for patientId:", patientId);
+            try {
+                // Fetch patient details for name
+                const patientData = await getPatient(patientId);
+                console.log("Patient Data:", patientData);
+                const name = patientData ? `${patientData.first_name} ${patientData.last_name}` : `Patient ${patientId}`;
+                console.log("Computed Name:", name);
+
+                const history = await getPatientHistory(patientId, 1);
+                if (history && history.length > 0) {
+                    const latest = history[0];
+                    setVitals({
+                        heartRate: latest.heart_rate,
+                        spo2: latest.spo2,
+                        bpSystolic: latest.bp_systolic,
+                        bpDiastolic: latest.bp_diastolic,
+                        temperature: latest.temperature_c,
+                        respiration: latest.respiration
+                    });
+
+                    setCurrentUser(prev => ({ ...prev, name: name, room: "101" }));
+                } else {
+                    // Even if no history, set the name
+                    setCurrentUser(prev => ({ ...prev, name: name, room: "101" }));
+                }
+            } catch (err) {
+                console.error("Failed to fetch patient data:", err);
+                // Fallback name with error for debugging
+                setCurrentUser(prev => ({ ...prev, name: `Error: ${err.message}`, room: "101" }));
+            }
+        }
+        fetchData();
     }, [patientId]);
+
+    // Handle WebSocket updates
+    useEffect(() => {
+        if (lastMessage && lastMessage.type === "vitals_update") {
+            const update = lastMessage.data.find(d => d.patient_id === patientId || d.patient_id === parseInt(patientId));
+            if (update) {
+                setVitals({
+                    heartRate: update.heart_rate,
+                    spo2: update.spo2,
+                    bpSystolic: update.bp_systolic,
+                    bpDiastolic: update.bp_diastolic,
+                    temperature: update.temperature_c,
+                    respiration: update.respiration
+                });
+                // Simple logic to determine critical state from vitals
+                const critical = update.heart_rate > 120 || update.spo2 < 90;
+                setIsCritical(critical);
+                setCurrentUser(prev => ({ ...prev, isCritical: critical, status: critical ? "Alert" : "Stable" }));
+            }
+        }
+    }, [lastMessage, patientId]);
 
     const content = isCritical ? {
         statusBadge: "Attention Needed",
@@ -371,7 +442,7 @@ export default function PatientDashboard({ patientId, isStaffView }) {
                 <div className="lg:col-span-2 space-y-8">
                     {/* 1. Vital Monitor */}
                     <section>
-                        <MedicalMonitoringDashboard isCritical={isCritical} />
+                        <MedicalMonitoringDashboard isCritical={isCritical} vitals={vitals} />
                         <p className="text-xs text-center mt-3 text-slate-400">
                             Data is encrypted and transmitted securely to Central Station.
                         </p>

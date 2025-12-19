@@ -68,41 +68,7 @@ INSERT INTO devices (device_type, serial_number, metadata) VALUES
     ('Blood Pressure Monitor', 'BPM-001', JSON_OBJECT('manufacturer', 'HealthDev', 'model', 'BPM-300', 'firmware', '1.5.2'));
 
 -- ----------------------------------------------------------------------------
--- Example Admission Records
+-- Admission Records and Device Assignments
 -- ----------------------------------------------------------------------------
--- Note: admitted_by references staff_id. 
--- Staff are created by seed_staff_auth.sql, so we need to find the doctor's staff_id
--- We'll use a subquery to get the first doctor's staff_id
-
-INSERT INTO admissions (patient_id, admitted_at, status, admitted_by, discharge_notes) 
-SELECT 
-    p.patient_id,
-    NOW() - INTERVAL (3 - p.patient_id) DAY,
-    'admitted',
-    (SELECT staff_id FROM staff WHERE role = 'doctor' LIMIT 1),
-    NULL
-FROM patients p
-WHERE p.patient_id IN (1, 2);
-
--- ----------------------------------------------------------------------------
--- Example Device Assignments
--- ----------------------------------------------------------------------------
--- Assign devices to patients. The trigger will automatically close previous assignments.
-
--- Device assignments - use subquery to get nurse's staff_id
-INSERT INTO device_assignments (device_id, patient_id, assigned_from, assigned_by, notes) 
-SELECT 
-    d.device_id,
-    p.patient_id,
-    NOW() - INTERVAL (3 - p.patient_id) DAY,
-    (SELECT staff_id FROM staff WHERE role = 'nurse' LIMIT 1),
-    CASE 
-        WHEN p.patient_id = 1 THEN 'Initial device assignment for patient monitoring'
-        WHEN p.patient_id = 2 THEN 'Device assigned for continuous monitoring'
-        ELSE 'Long-term monitoring setup'
-    END
-FROM devices d
-CROSS JOIN patients p
-WHERE d.device_id IN (1, 2) AND p.patient_id IN (1, 2)
-ORDER BY d.device_id, p.patient_id
-LIMIT 2;
+-- Note: Admissions and device assignments are created by 04_seed_admissions.sql
+--       which runs after staff is created, ensuring foreign key constraints are met.

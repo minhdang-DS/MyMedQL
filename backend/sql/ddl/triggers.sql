@@ -6,7 +6,7 @@
 -- Run this file after schema.sql to create all triggers.
 -- ============================================================================
 
-USE `MyMedQL`;
+USE `mymedql`;
 
 -- ----------------------------------------------------------------------------
 -- Trigger: Auto-Update Admission Status on Discharge

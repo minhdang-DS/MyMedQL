@@ -323,8 +323,24 @@ export default function PatientDashboard({ patientId, isStaffView }) {
     // Handle WebSocket updates
     useEffect(() => {
         if (lastMessage && lastMessage.type === "vitals_update") {
-            const update = lastMessage.data.find(d => d.patient_id === patientId || d.patient_id === parseInt(patientId));
+            console.log('Processing vitals update:', lastMessage);
+            console.log('Looking for patient_id:', patientId, 'Type:', typeof patientId);
+            
+            // Normalize patientId to number for comparison
+            const targetPatientId = Number(patientId);
+            
+            const update = lastMessage.data.find(d => {
+                // Handle both number and string patient_id from database
+                const dPatientId = Number(d.patient_id);
+                const match = dPatientId === targetPatientId;
+                if (match) {
+                    console.log('Found matching update:', d);
+                }
+                return match;
+            });
+            
             if (update) {
+                console.log('Updating vitals with:', update);
                 setVitals({
                     heartRate: update.heart_rate,
                     spo2: update.spo2,
@@ -337,6 +353,9 @@ export default function PatientDashboard({ patientId, isStaffView }) {
                 const critical = update.heart_rate > 120 || update.spo2 < 90;
                 setIsCritical(critical);
                 setCurrentUser(prev => ({ ...prev, isCritical: critical, status: critical ? "Alert" : "Stable" }));
+            } else {
+                console.log('No matching update found for patient_id:', patientId, '(normalized:', targetPatientId, ')');
+                console.log('Available patient_ids in data:', lastMessage.data.map(d => `${d.patient_id} (${typeof d.patient_id})`));
             }
         }
     }, [lastMessage, patientId]);

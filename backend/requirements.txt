@@ -1,6 +1,7 @@
 # FastAPI and server
 fastapi==0.110.2
 uvicorn[standard]==0.29.0
+python-multipart==0.0.9
 
 # Database
 sqlalchemy==2.0.30
@@ -10,6 +11,7 @@ python-dotenv==1.0.0
 # Authentication and security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.0.1  # Pinned to 4.0.1 for compatibility with passlib 1.7.4
 cryptography==42.0.5
 
 # Testing

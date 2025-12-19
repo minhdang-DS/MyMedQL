@@ -8,7 +8,13 @@ from passlib.context import CryptContext
 import os
 
 # Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Configure to avoid bcrypt bug detection that causes issues with bcrypt 5.0+
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__ident="2b",  # Use 2b identifier
+    bcrypt__rounds=12,   # Use 12 rounds
+)
 
 # JWT settings
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production-use-a-secure-random-key")

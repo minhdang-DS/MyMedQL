@@ -8,7 +8,7 @@
 -- performance optimization or specific query patterns.
 -- ============================================================================
 
-USE `MyMedQL`;
+USE `mymedql`;
 
 -- Additional indexes can be added here if needed for specific query patterns.
 -- Example:

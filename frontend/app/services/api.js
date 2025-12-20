@@ -1,7 +1,5 @@
-// Use environment variable if available, otherwise default to localhost:3001
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL 
-  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
-  : 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
 import { getToken } from './auth';
 
 /**

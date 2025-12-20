@@ -1,4 +1,5 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+console.log('API_BASE_URL is:', API_BASE_URL);
 
 import { getToken } from './auth';
 
@@ -95,14 +96,14 @@ export async function deletePatient(patientId) {
             method: 'DELETE',
             headers: headers
         });
-        
+
         if (!response.ok) {
             if (response.status === 404) {
                 throw new Error('Patient not found');
             }
             throw new Error('Failed to delete patient');
         }
-        
+
         return;
     } catch (error) {
         console.error(`Error deleting patient ${patientId}:`, error);
@@ -157,11 +158,11 @@ export async function createEmergencyAlert(patientId) {
             method: 'POST',
             headers: headers
         });
-        
+
         if (!response.ok) {
             throw new Error('Failed to create emergency alert');
         }
-        
+
         return await response.json();
     } catch (error) {
         console.error(`Error creating emergency alert for patient ${patientId}:`, error);

@@ -43,19 +43,19 @@ USE `mymedql`;
 -- IMPORTANT: password_hash is NOT set in this INSERT. Patient passwords are set
 --            automatically by seed_patient_auth.sql which runs after this file.
 
-INSERT INTO patients (first_name, last_name, dob, gender, contact_info, medical_history) VALUES
+INSERT INTO patients (first_name, last_name, dob, gender, contact_info, room_id, medical_history) VALUES
     -- ('John', 'Doe', '1980-05-15', 'male', 
     --  JSON_OBJECT('phone', '+1-555-0101', 'email', 'john.doe@example.com', 
     --              'emergency_contact', JSON_OBJECT('name', 'Jane Doe', 'phone', '+1-555-0102')), 
-    --  NULL),
+    --  '201-A', NULL),
     ('Jane', 'Smith', '1975-08-22', 'female',
      JSON_OBJECT('phone', '+1-555-0201', 'email', 'jane.smith@example.com',
                  'emergency_contact', JSON_OBJECT('name', 'John Smith', 'phone', '+1-555-0202')),
-     NULL),
+     '201-A', NULL),
     ('Robert', 'Johnson', '1990-12-03', 'male',
      JSON_OBJECT('phone', '+1-555-0301', 'email', 'robert.johnson@example.com',
                  'emergency_contact', JSON_OBJECT('name', 'Mary Johnson', 'phone', '+1-555-0302')),
-     NULL);
+     '305-ICU', NULL);
 
 -- ----------------------------------------------------------------------------
 -- Example Device Records
@@ -68,41 +68,7 @@ INSERT INTO devices (device_type, serial_number, metadata) VALUES
     ('Blood Pressure Monitor', 'BPM-001', JSON_OBJECT('manufacturer', 'HealthDev', 'model', 'BPM-300', 'firmware', '1.5.2'));
 
 -- ----------------------------------------------------------------------------
--- Example Admission Records
+-- Admission Records and Device Assignments
 -- ----------------------------------------------------------------------------
--- Note: admitted_by references staff_id. 
--- Staff are created by seed_staff_auth.sql, so we need to find the doctor's staff_id
--- We'll use a subquery to get the first doctor's staff_id
-
-INSERT INTO admissions (patient_id, admitted_at, status, admitted_by, discharge_notes) 
-SELECT 
-    p.patient_id,
-    NOW() - INTERVAL (3 - p.patient_id) DAY,
-    'admitted',
-    (SELECT staff_id FROM staff WHERE role = 'doctor' LIMIT 1),
-    NULL
-FROM patients p
-WHERE p.patient_id IN (1, 2);
-
--- ----------------------------------------------------------------------------
--- Example Device Assignments
--- ----------------------------------------------------------------------------
--- Assign devices to patients. The trigger will automatically close previous assignments.
-
--- Device assignments - use subquery to get nurse's staff_id
-INSERT INTO device_assignments (device_id, patient_id, assigned_from, assigned_by, notes) 
-SELECT 
-    d.device_id,
-    p.patient_id,
-    NOW() - INTERVAL (3 - p.patient_id) DAY,
-    (SELECT staff_id FROM staff WHERE role = 'nurse' LIMIT 1),
-    CASE 
-        WHEN p.patient_id = 1 THEN 'Initial device assignment for patient monitoring'
-        WHEN p.patient_id = 2 THEN 'Device assigned for continuous monitoring'
-        ELSE 'Long-term monitoring setup'
-    END
-FROM devices d
-CROSS JOIN patients p
-WHERE d.device_id IN (1, 2) AND p.patient_id IN (1, 2)
-ORDER BY d.device_id, p.patient_id
-LIMIT 2;
+-- Note: Admissions and device assignments are created by 04_seed_admissions.sql
+--       which runs after staff is created, ensuring foreign key constraints are met.

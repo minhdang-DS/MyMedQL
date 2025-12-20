@@ -8,7 +8,7 @@
 -- Adjust partition ranges as your demo timeline requires.
 -- ============================================================================
 
-USE `MyMedQL`;
+USE `mymedql`;
 
 -- ----------------------------------------------------------------------------
 -- Apply Partitioning to Vitals Table

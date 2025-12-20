@@ -1,6 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const WS_URL = 'ws://localhost:8000/ws/vitals';
+// Use environment variable if available, otherwise default to localhost:3001
+// For Docker, use the API URL and convert to WebSocket URL
+const getWebSocketUrl = () => {
+  if (typeof window === 'undefined') return 'ws://localhost:3001/ws/vitals';
+  
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  // Convert http:// to ws:// and https:// to wss://
+  const wsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+  return `${wsUrl}/ws/vitals`;
+};
+
+const WS_URL = getWebSocketUrl();
 
 export function useWebSocket() {
     const [isConnected, setIsConnected] = useState(false);
@@ -25,6 +36,7 @@ export function useWebSocket() {
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    console.log('WebSocket message received:', data);
                     setLastMessage(data);
                 } catch (e) {
                     console.error('Error parsing WebSocket message:', e);

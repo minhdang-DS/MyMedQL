@@ -6,7 +6,7 @@
 -- Run this file after schema.sql to create all stored procedures.
 -- ============================================================================
 
-USE `MyMedQL`;
+USE `mymedql`;
 
 -- ----------------------------------------------------------------------------
 -- Get Last N Readings Procedure

@@ -6,7 +6,7 @@
 -- Run this file after schema.sql to create all views.
 -- ============================================================================
 
-USE `MyMedQL`;
+USE `mymedql`;
 
 -- ----------------------------------------------------------------------------
 -- Hourly Vitals Averages View

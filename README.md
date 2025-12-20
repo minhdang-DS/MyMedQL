@@ -2,6 +2,22 @@
 
 ---
 
+## 🚀 Quick Start
+
+**Want to run the project?** See **[QUICK_START.md](./QUICK_START.md)** for step-by-step instructions.
+
+**TL;DR:**
+```bash
+cd "/Users/dinhieufam/DINHHIEU/VINUNI/Fall 25/COMP3030 - Databases and Database Systems/Project/MyMedQL"
+docker-compose up --build
+```
+Then access:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3001
+- API Docs: http://localhost:3001/docs
+
+---
+
 ## 📄 Brief description
 We build a lightweight ICU-style monitoring platform that ingests patient vital signs in real time, stores them in a structured relational database, and presents them on a live web dashboard. The system detects abnormal values, generates time-stamped alerts, and provides historical trends to support clinical decision-making. Our primary technical focus is demonstrating robust database engineering with MySQL as the canonical data store.
 

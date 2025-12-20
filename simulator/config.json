@@ -1,9 +1,0 @@
-{
-  "backend_url": "http://localhost:3001/api/v1/vitals",
-  "patient_id": "patient-1",
-  "sensor_id": "sim-001",
-  "scenario_file": "scenarios/cardiac_arrest.json",
-  "seed": 42,
-  "send_interval_seconds": 1.0
-}
-

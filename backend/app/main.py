@@ -1,66 +1,70 @@
-import os
-import logging
-
-from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
+"""
+FastAPI main application
+"""
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import AsyncEngine
+from app.api.endpoints import patients, analytics, auth, websocket, thresholds
+from app.websocket.connection_manager import ConnectionManager
+from app.websocket.poller import start_poller, stop_poller
 
-from app.api.dependencies import get_connection_manager
-from app.api.routers import api_router
-from app.core.config import settings
-from app.db import base  # noqa: F401  # ensures models are imported
-from app.db.base import Base
-from app.db.session import engine
+# Global connection manager
+connection_manager = ConnectionManager()
 
-logger = logging.getLogger(__name__)
 
-app = FastAPI(title="MyMedQL Backend", version="1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for startup and shutdown events.
+    """
+    # Startup
+    print("🚀 Starting MyMedQL API...")
+    await start_poller(connection_manager)
+    websocket.set_manager(connection_manager)
+    print("✅ MyMedQL API started")
+    
+    yield
+    
+    # Shutdown
+    print("🛑 Shutting down MyMedQL API...")
+    await stop_poller()
+    connection_manager.disconnect_all()
+    print("✅ MyMedQL API stopped")
 
-# Add CORS middleware
+
+# Create FastAPI app instance with lifespan
+app = FastAPI(
+    title="MyMedQL API",
+    description="Medical Query Language API for real-time patient vital monitoring",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=["*"],  # In production, specify exact origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include API routes
-app.include_router(api_router)
+# Include routers
+app.include_router(patients.router)
+app.include_router(analytics.router)
+app.include_router(auth.router)
+app.include_router(websocket.router)
+app.include_router(thresholds.router)
 
 
-@app.on_event("startup")
-async def on_startup():
-    if os.getenv("SKIP_DB_INIT") == "1":
-        logger.info("Skipping DB init as SKIP_DB_INIT=1")
-        return
-    try:
-        await create_tables(engine)
-        logger.info("Database tables created successfully")
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.warning("DB init skipped due to error: %s", exc)
-
-
-async def create_tables(db_engine: AsyncEngine):
-    async with db_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {"message": "MyMedQL API", "version": "1.0.0"}
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "MyMedQL Backend"}
-
-
-@app.websocket("/ws")
-async def websocket_endpoint(
-    websocket: WebSocket, manager=Depends(get_connection_manager)
-):
-    await manager.connect(websocket)
-    try:
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
-
-
+    """Health check endpoint"""
+    return {"status": "healthy"}
 

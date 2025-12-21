@@ -14,21 +14,23 @@ USE `mymedql`;
 -- ----------------------------------------------------------------------------
 -- These thresholds apply to all patients for alert generation
 
-INSERT INTO thresholds (name, type, min_value, max_value) VALUES
-    ('heart_rate', 'warning', 60, 100),      -- Warning if HR < 60 or > 100
-    ('heart_rate', 'danger', 40, 120),       -- Danger if HR < 40 or > 120
-    ('spo2', 'warning', 94, 100),            -- Warning if SpO2 < 94%
-    ('spo2', 'danger', 90, 100),              -- Danger if SpO2 < 90%
-    ('temperature_c', 'warning', 36.0, 37.5), -- Warning if temp < 36.0°C or > 37.5°C
-    ('temperature_c', 'danger', 35.0, 38.5),  -- Danger if temp < 35.0°C or > 38.5°C
-    ('bp_systolic', 'warning', 90, 140),      -- Warning if systolic BP < 90 or > 140
-    ('bp_systolic', 'danger', 80, 160),       -- Danger if systolic BP < 80 or > 160
-    ('bp_diastolic', 'warning', 60, 90),      -- Warning if diastolic BP < 60 or > 90
-    ('bp_diastolic', 'danger', 50, 100),      -- Danger if diastolic BP < 50 or > 100
-    ('respiration', 'warning', 12, 20),       -- Warning if respiration < 12 or > 20
-    ('respiration', 'danger', 10, 30)         -- Danger if respiration < 10 or > 30
+INSERT INTO thresholds (name, type, min_value, max_value, unit, patient_id, created_by, notes) VALUES
+    ('heart_rate', 'warning', 60, 100, 'bpm', NULL, (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1), 'Normal heart rate warning range'),
+    ('heart_rate', 'critical', 40, 120, 'bpm', NULL, (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1), 'Critical heart rate range'),
+    ('spo2', 'warning', 94, 100, '%', NULL, (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1), 'Oxygen saturation warning range'),
+    ('spo2', 'critical', 90, 100, '%', NULL, (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1), 'Critical oxygen saturation range'),
+    ('temperature_c', 'warning', 36.0, 37.5, '°C', NULL, (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1), 'Body temperature warning range'),
+    ('temperature_c', 'critical', 35.0, 38.5, '°C', NULL, (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1), 'Critical body temperature range'),
+    ('bp_systolic', 'warning', 90, 140, 'mmHg', NULL, (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1), 'Systolic blood pressure warning range'),
+    ('bp_systolic', 'critical', 80, 160, 'mmHg', NULL, (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1), 'Critical systolic blood pressure range'),
+    ('bp_diastolic', 'warning', 60, 90, 'mmHg', NULL, (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1), 'Diastolic blood pressure warning range'),
+    ('bp_diastolic', 'critical', 50, 100, 'mmHg', NULL, (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1), 'Critical diastolic blood pressure range'),
+    ('respiration', 'warning', 12, 20, 'breaths/min', NULL, (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1), 'Respiration rate warning range'),
+    ('respiration', 'critical', 10, 30, 'breaths/min', NULL, (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1), 'Critical respiration rate range')
 ON DUPLICATE KEY UPDATE
-    type = VALUES(type),
     min_value = VALUES(min_value),
-    max_value = VALUES(max_value);
+    max_value = VALUES(max_value),
+    unit = VALUES(unit),
+    notes = VALUES(notes),
+    created_by = VALUES(created_by);
 

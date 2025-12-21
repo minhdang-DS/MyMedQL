@@ -176,7 +176,7 @@ async def get_patient_device(
             if not patient_check.fetchone():
                 raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
             
-            # Get active device assignment with manufacturer from metadata
+            # Get most recent device assignment with manufacturer from metadata
             result = conn.execute(
                 text("""
                     SELECT 
@@ -187,7 +187,6 @@ async def get_patient_device(
                     FROM devices d
                     INNER JOIN device_assignments da ON d.device_id = da.device_id
                     WHERE da.patient_id = :pid 
-                      AND da.assigned_to IS NULL
                     ORDER BY da.assigned_from DESC
                     LIMIT 1
                 """),
@@ -359,14 +358,12 @@ async def create_emergency_alert(
                     INSERT INTO alerts (
                         patient_id,
                         alert_type,
-                        severity,
                         message,
                         created_at
                     )
                     VALUES (
                         :patient_id,
-                        'emergency_help',
-                        'critical',
+                        'emergency',
                         :message,
                         NOW(6)
                     )
@@ -382,7 +379,7 @@ async def create_emergency_alert(
             # Get the created alert
             alert_result = conn.execute(
                 text("""
-                    SELECT alert_id, patient_id, alert_type, severity, message, created_at
+                    SELECT alert_id, patient_id, alert_type, message, created_at, acknowledged_at
                     FROM alerts
                     WHERE alert_id = :alert_id
                 """),

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { getPatientHistory, getPatient, getThresholds, getPatientDevice, createEmergencyAlert } from "../app/services/api";
+import { getPatientHistory, getPatient, getThresholds, getPatientDevice, createEmergencyAlert, getPatientAlerts } from "../app/services/api";
 import { useWebSocket } from "../app/hooks/useWebSocket";
 
 // Use the same palette as staff page
@@ -42,16 +42,16 @@ function generateAlerts(vitals, thresholds) {
 
   // Heart Rate checks
   if (vitals.heartRate !== null && vitals.heartRate !== undefined) {
-    const hrDanger = getThresholdValue(thresholds, 'heart_rate', 'danger');
+    const hrCritical = getThresholdValue(thresholds, 'heart_rate', 'critical');
     const hrWarning = getThresholdValue(thresholds, 'heart_rate', 'warning');
 
-    if (hrDanger) {
-      if ((hrDanger.min_value !== null && vitals.heartRate < hrDanger.min_value) ||
-          (hrDanger.max_value !== null && vitals.heartRate > hrDanger.max_value)) {
+    if (hrCritical) {
+      if ((hrCritical.min_value !== null && vitals.heartRate < hrCritical.min_value) ||
+          (hrCritical.max_value !== null && vitals.heartRate > hrCritical.max_value)) {
         alerts.push({
           title: "Heart Rate Critical",
           time: timeStr,
-          body: `Your heart rate is ${vitals.heartRate < hrDanger.min_value ? 'below' : 'above'} the safe range (${hrDanger.min_value || 'N/A'}-${hrDanger.max_value || 'N/A'} BPM).`,
+          body: `Your heart rate is ${vitals.heartRate < hrCritical.min_value ? 'below' : 'above'} the safe range (${hrCritical.min_value || 'N/A'}-${hrCritical.max_value || 'N/A'} BPM).`,
           reassurance: "Your care team has been notified and is monitoring your condition.",
           isCritical: true,
         });
@@ -74,16 +74,16 @@ function generateAlerts(vitals, thresholds) {
 
   // SpO2 checks
   if (vitals.spo2 !== null && vitals.spo2 !== undefined) {
-    const spo2Danger = getThresholdValue(thresholds, 'spo2', 'danger');
+    const spo2Critical = getThresholdValue(thresholds, 'spo2', 'critical');
     const spo2Warning = getThresholdValue(thresholds, 'spo2', 'warning');
 
-    if (spo2Danger) {
-      if ((spo2Danger.min_value !== null && vitals.spo2 < spo2Danger.min_value) ||
-          (spo2Danger.max_value !== null && vitals.spo2 > spo2Danger.max_value)) {
+    if (spo2Critical) {
+      if ((spo2Critical.min_value !== null && vitals.spo2 < spo2Critical.min_value) ||
+          (spo2Critical.max_value !== null && vitals.spo2 > spo2Critical.max_value)) {
         alerts.push({
           title: "Oxygen Level Critical",
           time: timeStr,
-          body: `Your oxygen saturation is ${vitals.spo2 < spo2Danger.min_value ? 'below' : 'above'} the safe range (${spo2Danger.min_value || 'N/A'}-${spo2Danger.max_value || 'N/A'}%).`,
+          body: `Your oxygen saturation is ${vitals.spo2 < spo2Critical.min_value ? 'below' : 'above'} the safe range (${spo2Critical.min_value || 'N/A'}-${spo2Critical.max_value || 'N/A'}%).`,
           reassurance: "Your care team has been notified immediately.",
           isCritical: true,
         });
@@ -106,16 +106,16 @@ function generateAlerts(vitals, thresholds) {
 
   // Blood Pressure checks
   if (vitals.bpSystolic !== null && vitals.bpSystolic !== undefined) {
-    const bpSystolicDanger = getThresholdValue(thresholds, 'bp_systolic', 'danger');
+    const bpSystolicCritical = getThresholdValue(thresholds, 'bp_systolic', 'critical');
     const bpSystolicWarning = getThresholdValue(thresholds, 'bp_systolic', 'warning');
 
-    if (bpSystolicDanger) {
-      if ((bpSystolicDanger.min_value !== null && vitals.bpSystolic < bpSystolicDanger.min_value) ||
-          (bpSystolicDanger.max_value !== null && vitals.bpSystolic > bpSystolicDanger.max_value)) {
+    if (bpSystolicCritical) {
+      if ((bpSystolicCritical.min_value !== null && vitals.bpSystolic < bpSystolicCritical.min_value) ||
+          (bpSystolicCritical.max_value !== null && vitals.bpSystolic > bpSystolicCritical.max_value)) {
         alerts.push({
           title: "Blood Pressure Critical",
           time: timeStr,
-          body: `Your systolic blood pressure is ${vitals.bpSystolic < bpSystolicDanger.min_value ? 'below' : 'above'} the safe range (${bpSystolicDanger.min_value || 'N/A'}-${bpSystolicDanger.max_value || 'N/A'} mmHg).`,
+          body: `Your systolic blood pressure is ${vitals.bpSystolic < bpSystolicCritical.min_value ? 'below' : 'above'} the safe range (${bpSystolicCritical.min_value || 'N/A'}-${bpSystolicCritical.max_value || 'N/A'} mmHg).`,
           reassurance: "Your care team has been notified and is monitoring your condition.",
           isCritical: true,
         });
@@ -138,16 +138,16 @@ function generateAlerts(vitals, thresholds) {
 
   // Temperature checks
   if (vitals.temperature !== null && vitals.temperature !== undefined) {
-    const tempDanger = getThresholdValue(thresholds, 'temperature_c', 'danger');
+    const tempCritical = getThresholdValue(thresholds, 'temperature_c', 'critical');
     const tempWarning = getThresholdValue(thresholds, 'temperature_c', 'warning');
 
-    if (tempDanger) {
-      if ((tempDanger.min_value !== null && vitals.temperature < tempDanger.min_value) ||
-          (tempDanger.max_value !== null && vitals.temperature > tempDanger.max_value)) {
+    if (tempCritical) {
+      if ((tempCritical.min_value !== null && vitals.temperature < tempCritical.min_value) ||
+          (tempCritical.max_value !== null && vitals.temperature > tempCritical.max_value)) {
         alerts.push({
           title: "Temperature Critical",
           time: timeStr,
-          body: `Your body temperature is ${vitals.temperature < tempDanger.min_value ? 'below' : 'above'} the safe range (${tempDanger.min_value || 'N/A'}-${tempDanger.max_value || 'N/A'}°C).`,
+          body: `Your body temperature is ${vitals.temperature < tempCritical.min_value ? 'below' : 'above'} the safe range (${tempCritical.min_value || 'N/A'}-${tempCritical.max_value || 'N/A'}°C).`,
           reassurance: "Your care team has been notified and is monitoring your condition.",
           isCritical: true,
         });
@@ -170,16 +170,16 @@ function generateAlerts(vitals, thresholds) {
 
   // Respiration checks
   if (vitals.respiration !== null && vitals.respiration !== undefined) {
-    const respDanger = getThresholdValue(thresholds, 'respiration', 'danger');
+    const respCritical = getThresholdValue(thresholds, 'respiration', 'critical');
     const respWarning = getThresholdValue(thresholds, 'respiration', 'warning');
 
-    if (respDanger) {
-      if ((respDanger.min_value !== null && vitals.respiration < respDanger.min_value) ||
-          (respDanger.max_value !== null && vitals.respiration > respDanger.max_value)) {
+    if (respCritical) {
+      if ((respCritical.min_value !== null && vitals.respiration < respCritical.min_value) ||
+          (respCritical.max_value !== null && vitals.respiration > respCritical.max_value)) {
         alerts.push({
           title: "Respiration Rate Critical",
           time: timeStr,
-          body: `Your respiration rate is ${vitals.respiration < respDanger.min_value ? 'below' : 'above'} the safe range (${respDanger.min_value || 'N/A'}-${respDanger.max_value || 'N/A'} breaths/min).`,
+          body: `Your respiration rate is ${vitals.respiration < respCritical.min_value ? 'below' : 'above'} the safe range (${respCritical.min_value || 'N/A'}-${respCritical.max_value || 'N/A'} breaths/min).`,
           reassurance: "Your care team has been notified and is monitoring your condition.",
           isCritical: true,
         });
@@ -438,74 +438,82 @@ function MedicalMonitoringDashboard({ isCritical, vitals }) {
                     </div>
                 </div>
 
-                {/* Middle Row: SpO2, BP, Temp */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* SpO2 */}
+                {/* Middle Row: SpO2, BP, Temp - Dynamic grid adapts to number of available plots */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* SpO2 - Only show if data available */}
+                    {(spo2 !== null && spo2 !== undefined) && (
+                        <div className="p-4 rounded-xl border" style={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                            borderColor: palette.brand + '40',
+                            boxShadow: `0 2px 8px ${palette.brand}15`
+                        }}>
+                            <div className="text-xs font-bold uppercase mb-1" style={{ color: palette.textSecondary }}>Oxygen (SpO2)</div>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-4xl font-mono font-bold" style={{ color: spo2Color }}>{spo2}</span>
+                                <span className="text-sm" style={{ color: palette.textSecondary }}>%</span>
+                            </div>
+                            <div className="h-10 mt-2 relative rounded overflow-hidden" style={{ backgroundColor: palette.muted }} ref={plethContainerRef}>
+                                <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 100">
+                                    <path d={plethPath} stroke={palette.brandBright} fill="none" strokeWidth="2" mask="url(#maskEcg)" />
+                                </svg>
+                            </div>
+                            {isCritical && <div className="mt-1 text-xs" style={{ color: palette.warning }}>Slightly low</div>}
+                        </div>
+                    )}
+
+                    {/* BP - Only show if data available */}
+                    {((systolic !== null && systolic !== undefined) || (diastolic !== null && diastolic !== undefined)) && (
+                        <div className="p-4 rounded-xl border" style={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                            borderColor: palette.brand + '40',
+                            boxShadow: `0 2px 8px ${palette.brand}15`
+                        }}>
+                            <div className="text-xs font-bold uppercase mb-1" style={{ color: palette.textSecondary }}>Blood Pressure</div>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-mono font-bold" style={{ color: palette.navyDark }}>{systolic ?? '--'}</span>
+                                <span className="text-xl" style={{ color: palette.textSecondary }}>/</span>
+                                <span className="text-3xl font-mono font-bold" style={{ color: palette.navyDark }}>{diastolic ?? '--'}</span>
+                            </div>
+                            <div className="text-xs mt-2" style={{ color: palette.textSecondary }}>mmHg (Auto-check 15m)</div>
+                        </div>
+                    )}
+
+                    {/* Temp - Only show if data available */}
+                    {(temperature !== null && temperature !== undefined) && (
+                        <div className="p-4 rounded-xl border" style={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                            borderColor: palette.brand + '40',
+                            boxShadow: `0 2px 8px ${palette.brand}15`
+                        }}>
+                            <div className="text-xs font-bold uppercase mb-1" style={{ color: palette.textSecondary }}>Temperature</div>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-4xl font-mono font-bold" style={{ color: palette.brand }}>{temperature}</span>
+                                <span className="text-sm" style={{ color: palette.textSecondary }}>°C</span>
+                            </div>
+                            <div className="text-xs mt-2" style={{ color: palette.textSecondary }}>Normal range</div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Bottom Row: Respiration - Only show if data available */}
+                {(respirationRate !== null && respirationRate !== undefined) && (
                     <div className="p-4 rounded-xl border" style={{
                         backgroundColor: 'rgba(255, 255, 255, 0.85)',
                         borderColor: palette.brand + '40',
                         boxShadow: `0 2px 8px ${palette.brand}15`
                     }}>
-                        <div className="text-xs font-bold uppercase mb-1" style={{ color: palette.textSecondary }}>Oxygen (SpO2)</div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-4xl font-mono font-bold" style={{ color: spo2Color }}>{spo2}</span>
-                            <span className="text-sm" style={{ color: palette.textSecondary }}>%</span>
+                        <div className="flex items-center gap-3 mb-2">
+                            <span className="text-xs font-bold uppercase" style={{ color: palette.textSecondary }}>Respiration</span>
+                            <span className="text-2xl font-mono font-bold" style={{ color: palette.warning }}>{respirationRate}</span>
+                            <span className="text-xs" style={{ color: palette.textSecondary }}>breaths/min</span>
                         </div>
-                        <div className="h-10 mt-2 relative rounded overflow-hidden" style={{ backgroundColor: palette.muted }} ref={plethContainerRef}>
-                            <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 100">
-                                <path d={plethPath} stroke={palette.brandBright} fill="none" strokeWidth="2" mask="url(#maskEcg)" />
+                        <div className="h-20 relative rounded overflow-hidden" style={{ backgroundColor: palette.muted }} ref={respContainerRef}>
+                            <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 1000 100">
+                                <path d={respirationPath} stroke="#FFD700" fill="none" strokeWidth="2" mask="url(#maskEcg)" />
                             </svg>
                         </div>
-                        {isCritical && <div className="mt-1 text-xs" style={{ color: palette.warning }}>Slightly low</div>}
                     </div>
-
-                    {/* BP */}
-                    <div className="p-4 rounded-xl border" style={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                        borderColor: palette.brand + '40',
-                        boxShadow: `0 2px 8px ${palette.brand}15`
-                    }}>
-                        <div className="text-xs font-bold uppercase mb-1" style={{ color: palette.textSecondary }}>Blood Pressure</div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-mono font-bold" style={{ color: palette.navyDark }}>{systolic}</span>
-                            <span className="text-xl" style={{ color: palette.textSecondary }}>/</span>
-                            <span className="text-3xl font-mono font-bold" style={{ color: palette.navyDark }}>{diastolic}</span>
-                        </div>
-                        <div className="text-xs mt-2" style={{ color: palette.textSecondary }}>mmHg (Auto-check 15m)</div>
-                    </div>
-
-                    {/* Temp */}
-                    <div className="p-4 rounded-xl border" style={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                        borderColor: palette.brand + '40',
-                        boxShadow: `0 2px 8px ${palette.brand}15`
-                    }}>
-                        <div className="text-xs font-bold uppercase mb-1" style={{ color: palette.textSecondary }}>Temperature</div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-4xl font-mono font-bold" style={{ color: palette.brand }}>{temperature}</span>
-                            <span className="text-sm" style={{ color: palette.textSecondary }}>°C</span>
-                        </div>
-                        <div className="text-xs mt-2" style={{ color: palette.textSecondary }}>Normal range</div>
-                    </div>
-                </div>
-
-                {/* Bottom Row: Respiration */}
-                <div className="p-4 rounded-xl border" style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                    borderColor: palette.brand + '40',
-                    boxShadow: `0 2px 8px ${palette.brand}15`
-                }}>
-                    <div className="flex items-center gap-3 mb-2">
-                        <span className="text-xs font-bold uppercase" style={{ color: palette.textSecondary }}>Respiration</span>
-                        <span className="text-2xl font-mono font-bold" style={{ color: palette.warning }}>{respirationRate}</span>
-                        <span className="text-xs" style={{ color: palette.textSecondary }}>breaths/min</span>
-                    </div>
-                    <div className="h-20 relative rounded overflow-hidden" style={{ backgroundColor: palette.muted }} ref={respContainerRef}>
-                        <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 1000 100">
-                            <path d={respirationPath} stroke="#FFD700" fill="none" strokeWidth="2" mask="url(#maskEcg)" />
-                        </svg>
-                    </div>
-                </div>
+                )}
             </div>
 
             {/* Status Footer */}
@@ -548,6 +556,45 @@ export default function PatientDashboard({ patientId, isStaffView }) {
         }
         fetchThresholdsData();
     }, []);
+
+    // Fetch alerts from database
+    useEffect(() => {
+        async function fetchAlertsData() {
+            try {
+                const alertsList = await getPatientAlerts(patientId, 20);
+                // Convert database alerts to display format
+                const formattedAlerts = alertsList.map(alert => {
+                    const alertTime = new Date(alert.created_at);
+                    const timeStr = alertTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    
+                    // Determine if critical based on alert_type
+                    const isCritical = alert.alert_type === 'critical' || alert.alert_type === 'emergency';
+                    
+                    return {
+                        title: alert.alert_type === 'emergency' ? 'Emergency Alert' : 
+                               alert.alert_type === 'critical' ? 'Critical Alert' :
+                               alert.alert_type === 'warning' ? 'Warning Alert' : 'Alert',
+                        time: timeStr,
+                        body: alert.message,
+                        reassurance: isCritical 
+                            ? "Your care team has been notified and is monitoring your condition."
+                            : "Please monitor closely and contact staff if needed.",
+                        isCritical: isCritical,
+                        acknowledged: alert.acknowledged_at !== null
+                    };
+                });
+                
+                // If we have database alerts, use them; otherwise fall back to generated alerts
+                if (formattedAlerts.length > 0) {
+                    setAlerts(formattedAlerts);
+                }
+            } catch (error) {
+                console.error("Error fetching alerts:", error);
+                // If fetching fails, we'll fall back to generated alerts
+            }
+        }
+        fetchAlertsData();
+    }, [patientId]);
 
     // Fetch initial history and device
     useEffect(() => {
@@ -633,12 +680,12 @@ export default function PatientDashboard({ patientId, isStaffView }) {
                 setVitals(vitalsData);
                 
                 // Determine critical state from thresholds
-                const hrDanger = getThresholdValue(thresholds, 'heart_rate', 'danger');
-                const spo2Danger = getThresholdValue(thresholds, 'spo2', 'danger');
-                const critical = (hrDanger && ((hrDanger.min_value !== null && update.heart_rate < hrDanger.min_value) || 
-                                                (hrDanger.max_value !== null && update.heart_rate > hrDanger.max_value))) ||
-                                 (spo2Danger && ((spo2Danger.min_value !== null && update.spo2 < spo2Danger.min_value) || 
-                                                (spo2Danger.max_value !== null && update.spo2 > spo2Danger.max_value)));
+                const hrCritical = getThresholdValue(thresholds, 'heart_rate', 'critical');
+                const spo2Critical = getThresholdValue(thresholds, 'spo2', 'critical');
+                const critical = (hrCritical && ((hrCritical.min_value !== null && update.heart_rate < hrCritical.min_value) || 
+                                                (hrCritical.max_value !== null && update.heart_rate > hrCritical.max_value))) ||
+                                 (spo2Critical && ((spo2Critical.min_value !== null && update.spo2 < spo2Critical.min_value) || 
+                                                (spo2Critical.max_value !== null && update.spo2 > spo2Critical.max_value)));
                 setIsCritical(critical);
                 setCurrentUser(prev => ({ ...prev, isCritical: critical, status: critical ? "Alert" : "Stable" }));
             } else {
@@ -648,16 +695,26 @@ export default function PatientDashboard({ patientId, isStaffView }) {
         }
     }, [lastMessage, patientId, thresholds]);
 
-    // Generate alerts when vitals or thresholds change
+    // Update critical state when alerts change
     useEffect(() => {
-        if (vitals && thresholds.length > 0) {
-            const generatedAlerts = generateAlerts(vitals, thresholds);
-            setAlerts(generatedAlerts);
-            
-            // Update critical state based on alerts
-            const hasCriticalAlert = generatedAlerts.some(a => a.isCritical);
+        if (alerts.length > 0) {
+            const hasCriticalAlert = alerts.some(a => a.isCritical);
             setIsCritical(hasCriticalAlert);
             setCurrentUser(prev => ({ ...prev, isCritical: hasCriticalAlert, status: hasCriticalAlert ? "Alert" : "Stable" }));
+        }
+    }, [alerts]);
+
+    // Generate alerts when vitals or thresholds change (as fallback if no DB alerts)
+    useEffect(() => {
+        if (vitals && thresholds.length > 0) {
+            // Generate alerts as fallback/complement to database alerts
+            const generatedAlerts = generateAlerts(vitals, thresholds);
+            
+            // If we have database alerts, merge them with generated ones (prioritize DB alerts)
+            // Otherwise, use generated alerts
+            if (alerts.length === 0 || alerts.every(a => a.acknowledged)) {
+                setAlerts(generatedAlerts);
+            }
         }
     }, [vitals, thresholds]);
 
@@ -849,7 +906,7 @@ export default function PatientDashboard({ patientId, isStaffView }) {
                         <h2 className="text-lg font-bold mb-4" style={{ color: palette.navyDark }}>
                             {isCritical ? "Active Messages" : "Recent Updates"}
                         </h2>
-                        <div className="space-y-4">
+                        <div className="space-y-4 max-h-96 overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin', scrollbarColor: `${palette.brand}40 transparent` }}>
                             {content.alerts.map((alert, i) => {
                                 // Determine alert color: green for normal, yellow for warning, red for danger
                                 const isNormal = !alert.isCritical && !alert.title.includes("Warning");

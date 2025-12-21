@@ -35,11 +35,13 @@ CREATE TABLE IF NOT EXISTS patients (
     gender ENUM('male', 'female', 'other', 'unknown') DEFAULT 'unknown',
     contact_info JSON DEFAULT NULL,              -- Phone, emergency contacts, etc.
     password_hash CHAR(60) DEFAULT NULL,         -- bcrypt hash for patient login
+    room_id VARCHAR(50) DEFAULT NULL,            -- Room identifier (e.g., "201-A", "305-ICU")
     medical_history VARBINARY(8192) DEFAULT NULL, -- Encrypted bytes; encrypt in app before storing
     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     PRIMARY KEY (patient_id),
-    INDEX idx_patients_name (last_name, first_name)
+    INDEX idx_patients_name (last_name, first_name),
+    INDEX idx_patients_room (room_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
@@ -87,7 +89,7 @@ CREATE TABLE IF NOT EXISTS admissions (
     patient_id BIGINT UNSIGNED NOT NULL,
     admitted_at DATETIME(6) NOT NULL,
     discharge_time DATETIME(6) DEFAULT NULL,
-    status ENUM('admitted', 'discharged', 'transferred', 'unknown') NOT NULL DEFAULT 'admitted',
+    status ENUM('admitted', 'discharged', 'transferred', 'unknown', 'verified') NOT NULL DEFAULT 'admitted',
     admitted_by INT UNSIGNED DEFAULT NULL,
     discharge_notes TEXT DEFAULT NULL,
     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -116,7 +118,6 @@ CREATE TABLE IF NOT EXISTS device_assignments (
     device_id INT UNSIGNED NOT NULL,
     patient_id BIGINT UNSIGNED NOT NULL,
     assigned_from DATETIME(6) NOT NULL,
-    assigned_to DATETIME(6) DEFAULT NULL,       -- NULL means currently assigned
     assigned_by INT UNSIGNED DEFAULT NULL,      -- Staff member who made the assignment
     notes VARCHAR(512) DEFAULT NULL,
     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -134,28 +135,26 @@ CREATE TABLE IF NOT EXISTS device_assignments (
         REFERENCES staff(staff_id) 
         ON DELETE SET NULL,
     INDEX idx_assign_patient_from (patient_id, assigned_from),
-    INDEX idx_assign_device_from (device_id, assigned_from),
-    INDEX idx_assign_active (device_id, assigned_to) -- For finding active assignments
+    INDEX idx_assign_device_from (device_id, assigned_from)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
 -- Thresholds Table
 -- ----------------------------------------------------------------------------
--- Stores versioned thresholds for vital signs monitoring.
--- Supports both global (patient_id IS NULL) and patient-specific thresholds.
--- Patient-specific thresholds take precedence over global ones.
+-- Stores thresholds for vital signs monitoring and alert generation.
+-- Type: 'warning' or 'critical' - determines alert type
+-- These thresholds are used to check patient vitals and create alerts.
 CREATE TABLE IF NOT EXISTS thresholds (
     threshold_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     name VARCHAR(64) NOT NULL,                  -- e.g., 'heart_rate', 'spo2', 'temperature_c', 'bp_systolic'
-    min_value DOUBLE DEFAULT NULL,
-    max_value DOUBLE DEFAULT NULL,
+    type ENUM('warning', 'critical') NOT NULL,  -- Alert type: warning or critical
+    min_value DOUBLE DEFAULT NULL,             -- Minimum acceptable value (NULL if no minimum)
+    max_value DOUBLE DEFAULT NULL,             -- Maximum acceptable value (NULL if no maximum)
     unit VARCHAR(32) DEFAULT NULL,
     patient_id BIGINT UNSIGNED DEFAULT NULL,    -- NULL => global threshold, otherwise patient-specific
-    effective_from DATETIME(6) NOT NULL DEFAULT '1970-01-01 00:00:00',
-    effective_to DATETIME(6) DEFAULT NULL,      -- NULL means currently effective
     created_by INT UNSIGNED DEFAULT NULL,
-    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     notes TEXT DEFAULT NULL,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (threshold_id),
     CONSTRAINT fk_thresholds_patient 
         FOREIGN KEY (patient_id) 
@@ -165,9 +164,10 @@ CREATE TABLE IF NOT EXISTS thresholds (
         FOREIGN KEY (created_by) 
         REFERENCES staff(staff_id) 
         ON DELETE SET NULL,
+    UNIQUE KEY uk_thresholds_name_type_patient (name, type, patient_id),
     INDEX idx_thresholds_name (name),
-    INDEX idx_thresholds_patient_name (patient_id, name),
-    INDEX idx_thresholds_effective (name, effective_from, effective_to)
+    INDEX idx_thresholds_type (type),
+    INDEX idx_thresholds_patient_name (patient_id, name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
@@ -211,6 +211,39 @@ CREATE TABLE IF NOT EXISTS vitals (
 -- This allows the schema to be created first, then partitioned
 
 -- ----------------------------------------------------------------------------
+-- Staff-Patient Assignments Table
+-- ----------------------------------------------------------------------------
+-- Junction table for many-to-many relationship between staff and patients.
+-- Tracks which staff members are assigned to monitor which patients.
+-- One staff member can monitor many patients, and one patient can be monitored by many staff members.
+CREATE TABLE IF NOT EXISTS staff_patients (
+    assignment_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    staff_id INT UNSIGNED NOT NULL,
+    patient_id BIGINT UNSIGNED NOT NULL,
+    assigned_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    assigned_by INT UNSIGNED DEFAULT NULL,  -- Staff member who made the assignment
+    notes VARCHAR(512) DEFAULT NULL,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (assignment_id),
+    CONSTRAINT fk_staff_patients_staff 
+        FOREIGN KEY (staff_id) 
+        REFERENCES staff(staff_id) 
+        ON DELETE CASCADE,
+    CONSTRAINT fk_staff_patients_patient 
+        FOREIGN KEY (patient_id) 
+        REFERENCES patients(patient_id) 
+        ON DELETE CASCADE,
+    CONSTRAINT fk_staff_patients_assigned_by 
+        FOREIGN KEY (assigned_by) 
+        REFERENCES staff(staff_id) 
+        ON DELETE SET NULL,
+    UNIQUE KEY uq_staff_patient (staff_id, patient_id),  -- Prevent duplicate assignments
+    INDEX idx_staff_patients_staff (staff_id),
+    INDEX idx_staff_patients_patient (patient_id),
+    INDEX idx_staff_patients_assigned_at (assigned_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
 -- Alerts Table
 -- ----------------------------------------------------------------------------
 -- Stores alerts generated when vital signs breach predefined thresholds.
@@ -218,60 +251,16 @@ CREATE TABLE IF NOT EXISTS vitals (
 CREATE TABLE IF NOT EXISTS alerts (
     alert_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     patient_id BIGINT UNSIGNED NOT NULL,
-    vitals_id BIGINT UNSIGNED DEFAULT NULL,     -- Reference to vitals.vitals_id (no FK due to vitals table partitioning)
-    alert_type VARCHAR(64) NOT NULL,            -- e.g., 'threshold_breach', 'device_failure'
-    severity ENUM('low', 'medium', 'high', 'critical') NOT NULL DEFAULT 'medium',
+    alert_type ENUM('warning', 'critical', 'emergency') NOT NULL,
     message TEXT NOT NULL,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    resolved_at DATETIME(6) DEFAULT NULL,       -- NULL means unresolved
-    created_by INT UNSIGNED DEFAULT NULL,       -- NULL if created by trigger/system
-    acknowledged_by INT UNSIGNED DEFAULT NULL,  -- Staff member who acknowledged the alert
     acknowledged_at DATETIME(6) DEFAULT NULL,
-    extra JSON DEFAULT NULL,                    -- Additional alert metadata
     PRIMARY KEY (alert_id),
     CONSTRAINT fk_alerts_patient 
         FOREIGN KEY (patient_id) 
         REFERENCES patients(patient_id) 
         ON DELETE CASCADE,
-    CONSTRAINT fk_alerts_created_by 
-        FOREIGN KEY (created_by) 
-        REFERENCES staff(staff_id) 
-        ON DELETE SET NULL,
-    CONSTRAINT fk_alerts_ack_by 
-        FOREIGN KEY (acknowledged_by) 
-        REFERENCES staff(staff_id) 
-        ON DELETE SET NULL,
     INDEX idx_alerts_patient_created (patient_id, created_at),
     INDEX idx_alerts_created_at (created_at),
-    INDEX idx_alerts_vitals_id (vitals_id),
-    INDEX idx_alerts_severity (severity),
-    INDEX idx_alerts_resolved (resolved_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ----------------------------------------------------------------------------
--- Notifications Table
--- ----------------------------------------------------------------------------
--- Stores notifications for WebSocket/push service delivery.
--- Created automatically via trigger when alerts are inserted.
-CREATE TABLE IF NOT EXISTS notifications (
-    notification_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    alert_id BIGINT UNSIGNED DEFAULT NULL,
-    recipient_staff_id INT UNSIGNED DEFAULT NULL, -- Specific staff member recipient
-    recipient_role ENUM('admin', 'doctor', 'nurse', 'viewer') DEFAULT NULL, -- Wildcard recipient by role
-    payload JSON NOT NULL,                       -- Structured payload for websocket/push delivery
-    sent TINYINT(1) NOT NULL DEFAULT 0,          -- 0 = pending, 1 = sent
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    delivered_at DATETIME(6) DEFAULT NULL,
-    PRIMARY KEY (notification_id),
-    CONSTRAINT fk_notifications_alert 
-        FOREIGN KEY (alert_id) 
-        REFERENCES alerts(alert_id) 
-        ON DELETE CASCADE,
-    CONSTRAINT fk_notifications_staff 
-        FOREIGN KEY (recipient_staff_id) 
-        REFERENCES staff(staff_id) 
-        ON DELETE SET NULL,
-    INDEX idx_notifications_sent (sent),
-    INDEX idx_notifications_recipient (recipient_staff_id, recipient_role),
-    INDEX idx_notifications_created (created_at)
+    INDEX idx_alerts_type (alert_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

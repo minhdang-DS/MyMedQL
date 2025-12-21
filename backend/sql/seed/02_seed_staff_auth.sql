@@ -20,7 +20,8 @@ USE `mymedql`;
 -- This ensures passwords are updated even if staff already exists
 
 INSERT INTO staff (name, email, password_hash, role, metadata) VALUES
-    ('Admin User', 'admin@example.com', '$2b$12$S2prsHz08j7VxIVvtdm78ubBYjL5rxb6VY0fviCoH1rodB3XJtkG.', 'admin', JSON_OBJECT('department', 'Administration'))
+    ('Admin User', 'admin@example.com', '$2b$12$S2prsHz08j7VxIVvtdm78ubBYjL5rxb6VY0fviCoH1rodB3XJtkG.', 'admin', 
+     JSON_OBJECT('department', 'Administration', 'employee_id', 'ADM001', 'phone', '+1-555-1001', 'office', 'Room 101'))
 ON DUPLICATE KEY UPDATE 
     password_hash = VALUES(password_hash),
     name = VALUES(name),
@@ -28,7 +29,8 @@ ON DUPLICATE KEY UPDATE
     metadata = VALUES(metadata);
 
 INSERT INTO staff (name, email, password_hash, role, metadata) VALUES
-    ('Dr. Alice Smith', 'doctor@example.com', '$2b$12$S2prsHz08j7VxIVvtdm78ubBYjL5rxb6VY0fviCoH1rodB3XJtkG.', 'doctor', JSON_OBJECT('department', 'Cardiology'))
+    ('Dr. Alice Smith', 'doctor@example.com', '$2b$12$S2prsHz08j7VxIVvtdm78ubBYjL5rxb6VY0fviCoH1rodB3XJtkG.', 'doctor', 
+     JSON_OBJECT('department', 'Cardiology', 'employee_id', 'DOC001', 'license', 'MD12345', 'phone', '+1-555-2001', 'office', 'Room 201', 'specialization', 'Cardiac Care'))
 ON DUPLICATE KEY UPDATE 
     password_hash = VALUES(password_hash),
     name = VALUES(name),
@@ -36,7 +38,8 @@ ON DUPLICATE KEY UPDATE
     metadata = VALUES(metadata);
 
 INSERT INTO staff (name, email, password_hash, role, metadata) VALUES
-    ('Nurse Bob', 'nurse@example.com', '$2b$12$S2prsHz08j7VxIVvtdm78ubBYjL5rxb6VY0fviCoH1rodB3XJtkG.', 'nurse', JSON_OBJECT('department', 'ICU'))
+    ('Nurse Bob Johnson', 'nurse@example.com', '$2b$12$S2prsHz08j7VxIVvtdm78ubBYjL5rxb6VY0fviCoH1rodB3XJtkG.', 'nurse', 
+     JSON_OBJECT('department', 'ICU', 'employee_id', 'NUR001', 'certification', 'RN67890', 'phone', '+1-555-3001', 'shift', 'Day', 'years_experience', 8))
 ON DUPLICATE KEY UPDATE 
     password_hash = VALUES(password_hash),
     name = VALUES(name),

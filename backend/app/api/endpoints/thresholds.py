@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/thresholds", tags=["thresholds"])
 # Pydantic models for request/response
 class ThresholdUpdate(BaseModel):
     name: str = Field(..., min_length=1, max_length=64)
-    type: str = Field(..., pattern="^(warning|danger)$")
+    type: str = Field(..., pattern="^(warning|critical)$")
     min_value: float | None = None
     max_value: float | None = None
 
@@ -31,7 +31,7 @@ async def list_thresholds() -> List[Dict[str, Any]]:
         engine = get_engine()
         with engine.connect() as conn:
             result = conn.execute(
-                text("SELECT threshold_id, name, type, min_value, max_value, created_at, updated_at FROM thresholds ORDER BY name, type")
+                text("SELECT threshold_id, name, type, min_value, max_value, unit, patient_id, created_by, notes, created_at FROM thresholds ORDER BY name, type")
             )
             thresholds = [dict(row._mapping) for row in result]
             return thresholds
@@ -54,7 +54,7 @@ async def get_thresholds_by_name(name: str) -> List[Dict[str, Any]]:
         engine = get_engine()
         with engine.connect() as conn:
             result = conn.execute(
-                text("SELECT threshold_id, name, type, min_value, max_value, created_at, updated_at FROM thresholds WHERE name = :name ORDER BY type"),
+                text("SELECT threshold_id, name, type, min_value, max_value, unit, patient_id, created_by, notes, created_at FROM thresholds WHERE name = :name ORDER BY type"),
                 {"name": name}
             )
             thresholds = [dict(row._mapping) for row in result]
@@ -86,8 +86,8 @@ async def update_threshold(
         Updated threshold record
     """
     # Validate threshold_type
-    if threshold_type not in ['warning', 'danger']:
-        raise HTTPException(status_code=400, detail="threshold_type must be 'warning' or 'danger'")
+    if threshold_type not in ['warning', 'critical']:
+        raise HTTPException(status_code=400, detail="threshold_type must be 'warning' or 'critical'")
     
     # Validate that name and type match the URL parameters
     if threshold_data.name != name:
@@ -110,7 +110,7 @@ async def update_threshold(
                 conn.execute(
                     text("""
                         UPDATE thresholds 
-                        SET min_value = :min_value, max_value = :max_value, updated_at = CURRENT_TIMESTAMP(6)
+                        SET min_value = :min_value, max_value = :max_value
                         WHERE name = :name AND type = :type
                     """),
                     {
@@ -139,7 +139,7 @@ async def update_threshold(
             
             # Fetch and return updated threshold
             result = conn.execute(
-                text("SELECT threshold_id, name, type, min_value, max_value, created_at, updated_at FROM thresholds WHERE name = :name AND type = :type"),
+                text("SELECT threshold_id, name, type, min_value, max_value, unit, patient_id, created_by, notes, created_at FROM thresholds WHERE name = :name AND type = :type"),
                 {"name": name, "type": threshold_type}
             )
             threshold = result.fetchone()

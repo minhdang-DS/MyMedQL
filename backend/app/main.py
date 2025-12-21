@@ -4,7 +4,7 @@ FastAPI main application
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import patients, analytics, auth, websocket, thresholds
+from app.api.endpoints import patients, analytics, auth, websocket, thresholds, alerts
 from app.websocket.connection_manager import ConnectionManager
 from app.websocket.poller import start_poller, stop_poller
 
@@ -55,6 +55,7 @@ app.include_router(analytics.router)
 app.include_router(auth.router)
 app.include_router(websocket.router)
 app.include_router(thresholds.router)
+app.include_router(alerts.router)
 
 
 @app.get("/")

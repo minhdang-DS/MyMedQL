@@ -32,18 +32,18 @@ function getThresholdValue(thresholds, name, type) {
 }
 
 function determineStatus(heartRate, spo2, thresholds = []) {
-  const hrDanger = getThresholdValue(thresholds, 'heart_rate', 'danger');
+  const hrCritical = getThresholdValue(thresholds, 'heart_rate', 'critical');
   const hrWarning = getThresholdValue(thresholds, 'heart_rate', 'warning');
-  const spo2Danger = getThresholdValue(thresholds, 'spo2', 'danger');
+  const spo2Critical = getThresholdValue(thresholds, 'spo2', 'critical');
   const spo2Warning = getThresholdValue(thresholds, 'spo2', 'warning');
   
-  // Check danger thresholds first
-  if (hrDanger && ((hrDanger.min_value !== null && heartRate < hrDanger.min_value) || 
-                    (hrDanger.max_value !== null && heartRate > hrDanger.max_value))) {
+  // Check critical thresholds first
+  if (hrCritical && ((hrCritical.min_value !== null && heartRate < hrCritical.min_value) || 
+                    (hrCritical.max_value !== null && heartRate > hrCritical.max_value))) {
     return { status: "Alert", priority: 1 };
   }
-  if (spo2Danger && ((spo2Danger.min_value !== null && spo2 < spo2Danger.min_value) || 
-                      (spo2Danger.max_value !== null && spo2 > spo2Danger.max_value))) {
+  if (spo2Critical && ((spo2Critical.min_value !== null && spo2 < spo2Critical.min_value) || 
+                      (spo2Critical.max_value !== null && spo2 > spo2Critical.max_value))) {
     return { status: "Alert", priority: 1 };
   }
   
@@ -95,22 +95,46 @@ export default function StaffPage() {
 
   // Fetch patients and their latest vitals
   useEffect(() => {
+    let isMounted = true; // Track if component is still mounted
+    
     async function fetchPatientsData() {
       try {
         setLoading(true);
+        console.log("=== FETCHING PATIENTS ===");
+        console.log("Thresholds available:", thresholds?.length || 0);
+        
         // Fetch all patients
         const patientsList = await getPatients();
+        console.log("Patients fetched:", patientsList?.length || 0, patientsList);
+        
+        if (!isMounted) {
+          console.log("Component unmounted, skipping state update");
+          return;
+        }
+        
+        if (!patientsList || patientsList.length === 0) {
+          console.warn("No patients returned from API");
+          setPatients([]);
+          setLoading(false);
+          return;
+        }
+        
+        console.log("Processing", patientsList.length, "patients...");
         
         // Fetch latest vitals for each patient
+        console.log("Fetching vitals for", patientsList.length, "patients...");
         const patientsWithVitals = await Promise.all(
-          patientsList.map(async (patient) => {
+          patientsList.map(async (patient, index) => {
             try {
+              console.log(`[${index + 1}/${patientsList.length}] Fetching history for patient ${patient.patient_id}...`);
               const history = await getPatientHistory(patient.patient_id, 1);
+              console.log(`[${index + 1}/${patientsList.length}] History received:`, history?.length || 0, "records");
               const latestVital = history && history.length > 0 ? history[0] : null;
               
               const heartRate = latestVital?.heart_rate || null;
               const spo2 = latestVital?.spo2 || null;
               
+              // Use current thresholds state (may be empty initially, that's OK)
               const { status, priority } = determineStatus(heartRate || 0, spo2 || 0, thresholds);
               
               return {
@@ -124,7 +148,9 @@ export default function StaffPage() {
                 room: patient.room_id || `Room ${patient.patient_id}`,
               };
             } catch (error) {
-              console.error(`Error fetching vitals for patient ${patient.patient_id}:`, error);
+              console.error(`[${index + 1}/${patientsList.length}] Error fetching vitals for patient ${patient.patient_id}:`, error);
+              console.error(`Error details:`, error.message, error.stack);
+              // Return patient with default values even if history fetch fails
               return {
                 id: String(patient.patient_id),
                 patient_id: patient.patient_id,
@@ -139,22 +165,31 @@ export default function StaffPage() {
           })
         );
         
+        console.log("Patients with vitals processed:", patientsWithVitals.length);
+        console.log("Sample patient:", patientsWithVitals[0]);
+        
+        if (!isMounted) {
+          console.log("Component unmounted, skipping state update");
+          return;
+        }
+        
         setPatients(patientsWithVitals);
+        console.log("Patients state updated!");
         
         // Generate alerts from patients using thresholds
         // Only create critical alerts if they don't exist OR if they exist but are not acknowledged
         // Don't create warning alerts - we'll just count patients in warning state
         setAlerts(prevAlerts => {
           const alertMap = new Map(prevAlerts.map(a => [a.id, a]));
-          const hrDanger = getThresholdValue(thresholds, 'heart_rate', 'danger');
-          const spo2Danger = getThresholdValue(thresholds, 'spo2', 'danger');
+          const hrCritical = getThresholdValue(thresholds, 'heart_rate', 'critical');
+          const spo2Critical = getThresholdValue(thresholds, 'spo2', 'critical');
           
           patientsWithVitals.forEach((p) => {
             // Check for critical heart rate alerts - only create if not already acknowledged
-            if (p.heartRate !== null && p.heartRate !== undefined && hrDanger) {
-              if ((hrDanger.min_value !== null && p.heartRate < hrDanger.min_value) ||
-                  (hrDanger.max_value !== null && p.heartRate > hrDanger.max_value)) {
-                const alertId = `hr-danger-${p.id}`;
+            if (p.heartRate !== null && p.heartRate !== undefined && hrCritical) {
+              if ((hrCritical.min_value !== null && p.heartRate < hrCritical.min_value) ||
+                  (hrCritical.max_value !== null && p.heartRate > hrCritical.max_value)) {
+                const alertId = `hr-critical-${p.id}`;
                 // Only create alert if it doesn't exist OR if it exists but is not acknowledged
                 const existingAlert = alertMap.get(alertId);
                 if (!existingAlert || !acknowledgedAlerts.has(alertId)) {
@@ -165,17 +200,17 @@ export default function StaffPage() {
                       patient: p.name,
                       severity: "Critical",
                       time: new Date().toLocaleTimeString(),
-                      desc: `HR ${hrDanger.max_value !== null && p.heartRate > hrDanger.max_value ? '>' : '<'} ${hrDanger.max_value !== null && p.heartRate > hrDanger.max_value ? hrDanger.max_value : hrDanger.min_value} bpm`
+                      desc: `HR ${hrCritical.max_value !== null && p.heartRate > hrCritical.max_value ? '>' : '<'} ${hrCritical.max_value !== null && p.heartRate > hrCritical.max_value ? hrCritical.max_value : hrCritical.min_value} bpm`
                     });
                   }
                 }
               }
             }
             // Check for critical SpO2 alerts - only create if not already acknowledged
-            if (p.spo2 !== null && p.spo2 !== undefined && spo2Danger) {
-              if ((spo2Danger.min_value !== null && p.spo2 < spo2Danger.min_value) ||
-                  (spo2Danger.max_value !== null && p.spo2 > spo2Danger.max_value)) {
-                const alertId = `spo2-danger-${p.id}`;
+            if (p.spo2 !== null && p.spo2 !== undefined && spo2Critical) {
+              if ((spo2Critical.min_value !== null && p.spo2 < spo2Critical.min_value) ||
+                  (spo2Critical.max_value !== null && p.spo2 > spo2Critical.max_value)) {
+                const alertId = `spo2-critical-${p.id}`;
                 // Only create alert if it doesn't exist OR if it exists but is not acknowledged
                 const existingAlert = alertMap.get(alertId);
                 if (!existingAlert || !acknowledgedAlerts.has(alertId)) {
@@ -186,7 +221,7 @@ export default function StaffPage() {
                       patient: p.name,
                       severity: "Critical",
                       time: new Date().toLocaleTimeString(),
-                      desc: `SpO2 ${spo2Danger.max_value !== null && p.spo2 > spo2Danger.max_value ? '>' : '<'} ${spo2Danger.max_value !== null && p.spo2 > spo2Danger.max_value ? spo2Danger.max_value : spo2Danger.min_value}%`
+                      desc: `SpO2 ${spo2Critical.max_value !== null && p.spo2 > spo2Critical.max_value ? '>' : '<'} ${spo2Critical.max_value !== null && p.spo2 > spo2Critical.max_value ? spo2Critical.max_value : spo2Critical.min_value}%`
                     });
                   }
                 }
@@ -196,14 +231,30 @@ export default function StaffPage() {
           return Array.from(alertMap.values());
         });
       } catch (error) {
-        console.error("Error fetching patients:", error);
+        console.error("=== ERROR FETCHING PATIENTS ===");
+        console.error("Error:", error);
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+        // Set empty array on error so UI shows "No patients found" instead of loading forever
+        if (isMounted) {
+          setPatients([]);
+        }
       } finally {
+        if (isMounted) {
         setLoading(false);
+          console.log("=== FETCH COMPLETE ===");
+        }
       }
     }
     
+    // Fetch patients immediately, and also when thresholds change (to recalculate status)
     fetchPatientsData();
-  }, [thresholds]);
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [thresholds, acknowledgedAlerts]);
 
   // Handle WebSocket updates for real-time vitals and emergency alerts
   useEffect(() => {
@@ -246,9 +297,9 @@ export default function StaffPage() {
           
           const updatedPatients = prevPatients.map(p => ({ ...p })); // Create deep copy
           const patientMap = new Map(updatedPatients.map(p => [p.patient_id, p]));
-          const hrDanger = getThresholdValue(thresholds, 'heart_rate', 'danger');
+          const hrCritical = getThresholdValue(thresholds, 'heart_rate', 'critical');
           const hrWarning = getThresholdValue(thresholds, 'heart_rate', 'warning');
-          const spo2Danger = getThresholdValue(thresholds, 'spo2', 'danger');
+          const spo2Critical = getThresholdValue(thresholds, 'spo2', 'critical');
           const spo2Warning = getThresholdValue(thresholds, 'spo2', 'warning');
           
           // Update vitals for all patients in the WebSocket message
@@ -290,10 +341,10 @@ export default function StaffPage() {
               if (!patient) return;
               
               // Check for critical heart rate alerts - only create if not already acknowledged
-              if (vital.heart_rate !== null && vital.heart_rate !== undefined && hrDanger) {
-                if ((hrDanger.min_value !== null && vital.heart_rate < hrDanger.min_value) ||
-                    (hrDanger.max_value !== null && vital.heart_rate > hrDanger.max_value)) {
-                  const alertId = `hr-danger-${patientId}`;
+              if (vital.heart_rate !== null && vital.heart_rate !== undefined && hrCritical) {
+                if ((hrCritical.min_value !== null && vital.heart_rate < hrCritical.min_value) ||
+                    (hrCritical.max_value !== null && vital.heart_rate > hrCritical.max_value)) {
+                  const alertId = `hr-critical-${patientId}`;
                   // Only create alert if it doesn't exist OR if it exists but is not acknowledged
                   const existingAlert = alertMap.get(alertId);
                   if (!existingAlert || !acknowledgedAlerts.has(alertId)) {
@@ -304,17 +355,17 @@ export default function StaffPage() {
                         patient: patient.name,
                         severity: "Critical",
                         time: new Date().toLocaleTimeString(),
-                        desc: `HR ${hrDanger.max_value !== null && vital.heart_rate > hrDanger.max_value ? '>' : '<'} ${hrDanger.max_value !== null && vital.heart_rate > hrDanger.max_value ? hrDanger.max_value : hrDanger.min_value} bpm`
+                        desc: `HR ${hrCritical.max_value !== null && vital.heart_rate > hrCritical.max_value ? '>' : '<'} ${hrCritical.max_value !== null && vital.heart_rate > hrCritical.max_value ? hrCritical.max_value : hrCritical.min_value} bpm`
                       });
                     }
                   }
                 }
               }
               // Check for critical SpO2 alerts - only create if not already acknowledged
-              if (vital.spo2 !== null && vital.spo2 !== undefined && spo2Danger) {
-                if ((spo2Danger.min_value !== null && vital.spo2 < spo2Danger.min_value) ||
-                    (spo2Danger.max_value !== null && vital.spo2 > spo2Danger.max_value)) {
-                  const alertId = `spo2-danger-${patientId}`;
+              if (vital.spo2 !== null && vital.spo2 !== undefined && spo2Critical) {
+                if ((spo2Critical.min_value !== null && vital.spo2 < spo2Critical.min_value) ||
+                    (spo2Critical.max_value !== null && vital.spo2 > spo2Critical.max_value)) {
+                  const alertId = `spo2-critical-${patientId}`;
                   // Only create alert if it doesn't exist OR if it exists but is not acknowledged
                   const existingAlert = alertMap.get(alertId);
                   if (!existingAlert || !acknowledgedAlerts.has(alertId)) {
@@ -325,7 +376,7 @@ export default function StaffPage() {
                         patient: patient.name,
                         severity: "Critical",
                         time: new Date().toLocaleTimeString(),
-                        desc: `SpO2 ${spo2Danger.max_value !== null && vital.spo2 > spo2Danger.max_value ? '>' : '<'} ${spo2Danger.max_value !== null && vital.spo2 > spo2Danger.max_value ? spo2Danger.max_value : spo2Danger.min_value}%`
+                        desc: `SpO2 ${spo2Critical.max_value !== null && vital.spo2 > spo2Critical.max_value ? '>' : '<'} ${spo2Critical.max_value !== null && vital.spo2 > spo2Critical.max_value ? spo2Critical.max_value : spo2Critical.min_value}%`
                       });
                     }
                   }
@@ -349,32 +400,32 @@ export default function StaffPage() {
     const countWarningPatients = () => {
       const hrWarning = getThresholdValue(thresholds, 'heart_rate', 'warning');
       const spo2Warning = getThresholdValue(thresholds, 'spo2', 'warning');
-      const hrDanger = getThresholdValue(thresholds, 'heart_rate', 'danger');
-      const spo2Danger = getThresholdValue(thresholds, 'spo2', 'danger');
+      const hrCritical = getThresholdValue(thresholds, 'heart_rate', 'critical');
+      const spo2Critical = getThresholdValue(thresholds, 'spo2', 'critical');
       
       let count = 0;
       patients.forEach((p) => {
-        // First check if patient is in critical/danger state - if so, skip them
-        let isInDanger = false;
+        // First check if patient is in critical state - if so, skip them
+        let isInCritical = false;
         
-        // Check heart rate danger
-        if (p.heartRate !== null && p.heartRate !== undefined && hrDanger) {
-          if ((hrDanger.min_value !== null && p.heartRate < hrDanger.min_value) ||
-              (hrDanger.max_value !== null && p.heartRate > hrDanger.max_value)) {
-            isInDanger = true;
+        // Check heart rate critical
+        if (p.heartRate !== null && p.heartRate !== undefined && hrCritical) {
+          if ((hrCritical.min_value !== null && p.heartRate < hrCritical.min_value) ||
+              (hrCritical.max_value !== null && p.heartRate > hrCritical.max_value)) {
+            isInCritical = true;
           }
         }
         
-        // Check SpO2 danger
-        if (!isInDanger && p.spo2 !== null && p.spo2 !== undefined && spo2Danger) {
-          if ((spo2Danger.min_value !== null && p.spo2 < spo2Danger.min_value) ||
-              (spo2Danger.max_value !== null && p.spo2 > spo2Danger.max_value)) {
-            isInDanger = true;
+        // Check SpO2 critical
+        if (!isInCritical && p.spo2 !== null && p.spo2 !== undefined && spo2Critical) {
+          if ((spo2Critical.min_value !== null && p.spo2 < spo2Critical.min_value) ||
+              (spo2Critical.max_value !== null && p.spo2 > spo2Critical.max_value)) {
+            isInCritical = true;
           }
         }
         
-        // If patient is in danger, don't count them in warning
-        if (isInDanger) {
+        // If patient is in critical, don't count them in warning
+        if (isInCritical) {
           return;
         }
         
@@ -935,116 +986,112 @@ export default function StaffPage() {
                 boxShadow: `0 4px 12px ${palette.brand}20`,
                 backgroundColor: 'rgba(255, 255, 255, 0.85)'
               }}>
-                <div className="flex items-center justify-between px-6 py-4 border-b" style={{ 
+                <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ 
                   borderColor: palette.brand + '40',
                   backgroundColor: 'rgba(224, 247, 250, 0.5)'
                 }}>
-                  <h2 className="flex items-center gap-3 text-sm font-bold uppercase tracking-wider" style={{ color: palette.navy }}>
-                    <div className="rounded-lg p-1.5" style={{ backgroundColor: palette.brand + '20', color: palette.brand }}>
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider" style={{ color: palette.navy }}>
+                    <div className="rounded-lg p-1" style={{ backgroundColor: palette.brand + '20', color: palette.brand }}>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                     </div>
                     Global Thresholds
                   </h2>
                 </div>
 
-                <div className="p-5 space-y-4">
+                <div className="p-3 space-y-2 max-h-96 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: `${palette.brand}40 transparent` }}>
                   {Object.keys(groupedThresholds).length > 0 ? (
                     Object.entries(groupedThresholds).map(([name, types]) => {
                       const warning = types.warning;
-                      const danger = types.danger;
+                      const critical = types.critical;
                       const displayName = getThresholdDisplayName(name);
                       const unit = getThresholdUnit(name);
                       const icon = getThresholdIcon(name);
                       
                       return (
-                        <div key={name} className="space-y-2">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-lg">{icon}</span>
-                            <span className="text-sm font-bold" style={{ color: palette.navy }}>{displayName}</span>
+                        <div key={name} className="space-y-1.5">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="text-sm">{icon}</span>
+                            <span className="text-xs font-bold" style={{ color: palette.navy }}>{displayName}</span>
                           </div>
                           
-                          {warning && (
-                            <div className="flex items-center justify-between rounded-xl border p-4 transition-all duration-150 cursor-pointer group" style={{ 
-                              borderColor: palette.warning + '40',
-                              boxShadow: `0 2px 8px ${palette.warning}15`,
-                              backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 215, 0, 0.1) 100%)'
-                            }} onClick={() => openEditModal(warning)} onMouseEnter={(e) => { 
-                              e.currentTarget.style.borderColor = palette.warning + '60'; 
-                              e.currentTarget.style.boxShadow = `0 2px 12px ${palette.warning}25`;
-                            }} onMouseLeave={(e) => { 
-                              e.currentTarget.style.borderColor = palette.warning + '40'; 
-                              e.currentTarget.style.boxShadow = `0 2px 8px ${palette.warning}15`;
-                            }}>
-                              <div className="flex items-center gap-3">
-                                <span className="text-xs text-white px-3 py-1.5 rounded-lg font-bold" style={{
-                                  backgroundColor: palette.warning,
-                                  boxShadow: `0 4px 12px ${palette.warning}40`
-                                }}>WARNING</span>
-                                <div>
-                                  <div className="text-sm font-semibold" style={{ color: palette.navyDark }}>
-                                    {warning.min_value !== null ? `Min: ${warning.min_value}${unit}` : 'No min'} 
-                                    {warning.min_value !== null && warning.max_value !== null ? ' • ' : ''}
-                                    {warning.max_value !== null ? `Max: ${warning.max_value}${unit}` : 'No max'}
+                          <div className="flex gap-1.5">
+                            {warning && (
+                              <div className="flex-1 flex items-center justify-between rounded-lg border p-2 transition-all duration-150 cursor-pointer group" style={{ 
+                                borderColor: palette.warning + '40',
+                                backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 215, 0, 0.1) 100%)'
+                              }} onClick={() => openEditModal(warning)} onMouseEnter={(e) => { 
+                                e.currentTarget.style.borderColor = palette.warning + '60'; 
+                                e.currentTarget.style.boxShadow = `0 2px 8px ${palette.warning}25`;
+                              }} onMouseLeave={(e) => { 
+                                e.currentTarget.style.borderColor = palette.warning + '40'; 
+                                e.currentTarget.style.boxShadow = 'none';
+                              }}>
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <span className="text-[10px] text-white px-1.5 py-0.5 rounded font-bold whitespace-nowrap" style={{
+                                    backgroundColor: palette.warning
+                                  }}>W</span>
+                                  <div className="text-xs font-medium truncate" style={{ color: palette.navyDark }}>
+                                    {warning.min_value !== null ? `${warning.min_value}` : '-'} 
+                                    {warning.min_value !== null && warning.max_value !== null ? '-' : ''}
+                                    {warning.max_value !== null ? `${warning.max_value}` : ''}
+                                    <span className="text-[10px] ml-0.5">{unit}</span>
                                   </div>
                                 </div>
+                                <button className="rounded p-1 transition-all duration-150 flex-shrink-0" style={{ 
+                                  backgroundColor: palette.warning + '20',
+                                  color: palette.warning
+                                }} onMouseEnter={(e) => {
+                                  e.currentTarget.style.opacity = '0.8';
+                                }} onMouseLeave={(e) => {
+                                  e.currentTarget.style.opacity = '1';
+                                }}>
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
                               </div>
-                              <button className="rounded-lg p-2 transition-all duration-150" style={{ 
-                                backgroundColor: palette.warning + '20',
-                                color: palette.warning
-                              }} onMouseEnter={(e) => {
-                                e.currentTarget.style.opacity = '0.8';
-                              }} onMouseLeave={(e) => {
-                                e.currentTarget.style.opacity = '1';
+                            )}
+                            
+                            {critical && (
+                              <div className="flex-1 flex items-center justify-between rounded-lg border p-2 transition-all duration-150 cursor-pointer group" style={{ 
+                                borderColor: palette.danger + '40',
+                                backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 82, 82, 0.1) 100%)'
+                              }} onClick={() => openEditModal(critical)} onMouseEnter={(e) => { 
+                                e.currentTarget.style.borderColor = palette.danger + '60'; 
+                                e.currentTarget.style.boxShadow = `0 2px 8px ${palette.danger}25`;
+                              }} onMouseLeave={(e) => { 
+                                e.currentTarget.style.borderColor = palette.danger + '40'; 
+                                e.currentTarget.style.boxShadow = 'none';
                               }}>
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                              </button>
-                            </div>
-                          )}
-                          
-                          {danger && (
-                            <div className="flex items-center justify-between rounded-xl border p-4 transition-all duration-150 cursor-pointer group" style={{ 
-                              borderColor: palette.danger + '40',
-                              boxShadow: `0 2px 8px ${palette.danger}15`,
-                              backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 82, 82, 0.1) 100%)'
-                            }} onClick={() => openEditModal(danger)} onMouseEnter={(e) => { 
-                              e.currentTarget.style.borderColor = palette.danger + '60'; 
-                              e.currentTarget.style.boxShadow = `0 2px 12px ${palette.danger}25`;
-                            }} onMouseLeave={(e) => { 
-                              e.currentTarget.style.borderColor = palette.danger + '40'; 
-                              e.currentTarget.style.boxShadow = `0 2px 8px ${palette.danger}15`;
-                            }}>
-                              <div className="flex items-center gap-3">
-                                <span className="text-xs text-white px-3 py-1.5 rounded-lg font-bold" style={{
-                                  backgroundColor: palette.danger,
-                                  boxShadow: `0 4px 12px ${palette.danger}40`
-                                }}>DANGER</span>
-                                <div>
-                                  <div className="text-sm font-semibold" style={{ color: palette.navyDark }}>
-                                    {danger.min_value !== null ? `Min: ${danger.min_value}${unit}` : 'No min'} 
-                                    {danger.min_value !== null && danger.max_value !== null ? ' • ' : ''}
-                                    {danger.max_value !== null ? `Max: ${danger.max_value}${unit}` : 'No max'}
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <span className="text-[10px] text-white px-1.5 py-0.5 rounded font-bold whitespace-nowrap" style={{
+                                    backgroundColor: palette.danger
+                                  }}>C</span>
+                                  <div className="text-xs font-medium truncate" style={{ color: palette.navyDark }}>
+                                    {critical.min_value !== null ? `${critical.min_value}` : '-'} 
+                                    {critical.min_value !== null && critical.max_value !== null ? '-' : ''}
+                                    {critical.max_value !== null ? `${critical.max_value}` : ''}
+                                    <span className="text-[10px] ml-0.5">{unit}</span>
                                   </div>
                                 </div>
+                                <button className="rounded p-1 transition-all duration-150 flex-shrink-0" style={{ 
+                                  backgroundColor: palette.danger + '20',
+                                  color: palette.danger
+                                }} onMouseEnter={(e) => {
+                                  e.currentTarget.style.opacity = '0.8';
+                                }} onMouseLeave={(e) => {
+                                  e.currentTarget.style.opacity = '1';
+                                }}>
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
                               </div>
-                              <button className="rounded-lg p-2 transition-all duration-150" style={{ 
-                                backgroundColor: palette.danger + '20',
-                                color: palette.danger
-                              }} onMouseEnter={(e) => {
-                                e.currentTarget.style.opacity = '0.8';
-                              }} onMouseLeave={(e) => {
-                                e.currentTarget.style.opacity = '1';
-                              }}>
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                              </button>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       );
                     })
                   ) : (
-                    <div className="text-center py-8 text-slate-400">
+                    <div className="text-center py-6 text-slate-400 text-xs">
                       <p>No thresholds configured</p>
                     </div>
                   )}
@@ -1388,13 +1435,13 @@ export default function StaffPage() {
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
               <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-black/5 animate-in zoom-in-95 duration-200">
                 <div className="flex items-start gap-4 mb-6">
-                  <div className={`rounded-full p-2 ${selectedThreshold.type === 'danger' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+                  <div className={`rounded-full p-2 ${selectedThreshold.type === 'critical' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
                     <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-bold text-slate-900">Edit Threshold</h3>
                     <p className="mt-1 text-sm text-slate-500 leading-relaxed">
-                      Modifying <strong className="text-slate-800">{getThresholdDisplayName(selectedThreshold.name)}</strong> - <strong className={selectedThreshold.type === 'danger' ? 'text-red-600' : 'text-amber-600'}>{selectedThreshold.type.toUpperCase()}</strong>
+                      Modifying <strong className="text-slate-800">{getThresholdDisplayName(selectedThreshold.name)}</strong> - <strong className={selectedThreshold.type === 'critical' ? 'text-red-600' : 'text-amber-600'}>{selectedThreshold.type.toUpperCase()}</strong>
                     </p>
                     <p className="mt-1 text-xs text-slate-400">
                       This will immediately affect alerts for all connected patients.
@@ -1447,7 +1494,7 @@ export default function StaffPage() {
                     onClick={handleSaveThreshold}
                     disabled={saving}
                     className={`rounded-lg px-4 py-2 text-sm font-bold text-white shadow-sm focus:ring-2 focus:ring-offset-2 transition-all disabled:opacity-50 ${
-                      selectedThreshold.type === 'danger' 
+                      selectedThreshold.type === 'critical' 
                         ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' 
                         : 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500'
                     }`}

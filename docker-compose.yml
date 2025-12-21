@@ -68,10 +68,14 @@ services:
     build:
       context: ./frontend
       dockerfile: ../docker/frontend.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001
+        NEXT_PUBLIC_WS_URL: ws://localhost:3001
     image: mymedql-frontend
     container_name: mymedql-frontend
     environment:
       # Backend API URL (for browser/client-side requests)
+      # Note: NEXT_PUBLIC_* vars must be set at build time, but we also set them here for runtime
       NEXT_PUBLIC_API_URL: http://localhost:3001
       NEXT_PUBLIC_WS_URL: ws://localhost:3001
       NODE_ENV: production

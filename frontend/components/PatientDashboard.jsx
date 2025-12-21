@@ -442,77 +442,77 @@ function MedicalMonitoringDashboard({ isCritical, vitals }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* SpO2 - Only show if data available */}
                     {(spo2 !== null && spo2 !== undefined) && (
-                        <div className="p-4 rounded-xl border" style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                            borderColor: palette.brand + '40',
-                            boxShadow: `0 2px 8px ${palette.brand}15`
-                        }}>
-                            <div className="text-xs font-bold uppercase mb-1" style={{ color: palette.textSecondary }}>Oxygen (SpO2)</div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-4xl font-mono font-bold" style={{ color: spo2Color }}>{spo2}</span>
-                                <span className="text-sm" style={{ color: palette.textSecondary }}>%</span>
-                            </div>
-                            <div className="h-10 mt-2 relative rounded overflow-hidden" style={{ backgroundColor: palette.muted }} ref={plethContainerRef}>
-                                <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 100">
-                                    <path d={plethPath} stroke={palette.brandBright} fill="none" strokeWidth="2" mask="url(#maskEcg)" />
-                                </svg>
-                            </div>
-                            {isCritical && <div className="mt-1 text-xs" style={{ color: palette.warning }}>Slightly low</div>}
-                        </div>
-                    )}
-
-                    {/* BP - Only show if data available */}
-                    {((systolic !== null && systolic !== undefined) || (diastolic !== null && diastolic !== undefined)) && (
-                        <div className="p-4 rounded-xl border" style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                            borderColor: palette.brand + '40',
-                            boxShadow: `0 2px 8px ${palette.brand}15`
-                        }}>
-                            <div className="text-xs font-bold uppercase mb-1" style={{ color: palette.textSecondary }}>Blood Pressure</div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-mono font-bold" style={{ color: palette.navyDark }}>{systolic ?? '--'}</span>
-                                <span className="text-xl" style={{ color: palette.textSecondary }}>/</span>
-                                <span className="text-3xl font-mono font-bold" style={{ color: palette.navyDark }}>{diastolic ?? '--'}</span>
-                            </div>
-                            <div className="text-xs mt-2" style={{ color: palette.textSecondary }}>mmHg (Auto-check 15m)</div>
-                        </div>
-                    )}
-
-                    {/* Temp - Only show if data available */}
-                    {(temperature !== null && temperature !== undefined) && (
-                        <div className="p-4 rounded-xl border" style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                            borderColor: palette.brand + '40',
-                            boxShadow: `0 2px 8px ${palette.brand}15`
-                        }}>
-                            <div className="text-xs font-bold uppercase mb-1" style={{ color: palette.textSecondary }}>Temperature</div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-4xl font-mono font-bold" style={{ color: palette.brand }}>{temperature}</span>
-                                <span className="text-sm" style={{ color: palette.textSecondary }}>°C</span>
-                            </div>
-                            <div className="text-xs mt-2" style={{ color: palette.textSecondary }}>Normal range</div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Bottom Row: Respiration - Only show if data available */}
-                {(respirationRate !== null && respirationRate !== undefined) && (
                     <div className="p-4 rounded-xl border" style={{
                         backgroundColor: 'rgba(255, 255, 255, 0.85)',
                         borderColor: palette.brand + '40',
                         boxShadow: `0 2px 8px ${palette.brand}15`
                     }}>
-                        <div className="flex items-center gap-3 mb-2">
-                            <span className="text-xs font-bold uppercase" style={{ color: palette.textSecondary }}>Respiration</span>
-                            <span className="text-2xl font-mono font-bold" style={{ color: palette.warning }}>{respirationRate}</span>
-                            <span className="text-xs" style={{ color: palette.textSecondary }}>breaths/min</span>
+                        <div className="text-xs font-bold uppercase mb-1" style={{ color: palette.textSecondary }}>Oxygen (SpO2)</div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-4xl font-mono font-bold" style={{ color: spo2Color }}>{spo2}</span>
+                            <span className="text-sm" style={{ color: palette.textSecondary }}>%</span>
                         </div>
-                        <div className="h-20 relative rounded overflow-hidden" style={{ backgroundColor: palette.muted }} ref={respContainerRef}>
-                            <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 1000 100">
-                                <path d={respirationPath} stroke="#FFD700" fill="none" strokeWidth="2" mask="url(#maskEcg)" />
+                        <div className="h-10 mt-2 relative rounded overflow-hidden" style={{ backgroundColor: palette.muted }} ref={plethContainerRef}>
+                            <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 100">
+                                <path d={plethPath} stroke={palette.brandBright} fill="none" strokeWidth="2" mask="url(#maskEcg)" />
                             </svg>
                         </div>
+                        {isCritical && <div className="mt-1 text-xs" style={{ color: palette.warning }}>Slightly low</div>}
                     </div>
+                    )}
+
+                    {/* BP - Only show if data available */}
+                    {((systolic !== null && systolic !== undefined) || (diastolic !== null && diastolic !== undefined)) && (
+                    <div className="p-4 rounded-xl border" style={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                        borderColor: palette.brand + '40',
+                        boxShadow: `0 2px 8px ${palette.brand}15`
+                    }}>
+                        <div className="text-xs font-bold uppercase mb-1" style={{ color: palette.textSecondary }}>Blood Pressure</div>
+                        <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-mono font-bold" style={{ color: palette.navyDark }}>{systolic ?? '--'}</span>
+                            <span className="text-xl" style={{ color: palette.textSecondary }}>/</span>
+                                <span className="text-3xl font-mono font-bold" style={{ color: palette.navyDark }}>{diastolic ?? '--'}</span>
+                        </div>
+                        <div className="text-xs mt-2" style={{ color: palette.textSecondary }}>mmHg (Auto-check 15m)</div>
+                    </div>
+                    )}
+
+                    {/* Temp - Only show if data available */}
+                    {(temperature !== null && temperature !== undefined) && (
+                    <div className="p-4 rounded-xl border" style={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                        borderColor: palette.brand + '40',
+                        boxShadow: `0 2px 8px ${palette.brand}15`
+                    }}>
+                        <div className="text-xs font-bold uppercase mb-1" style={{ color: palette.textSecondary }}>Temperature</div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-4xl font-mono font-bold" style={{ color: palette.brand }}>{temperature}</span>
+                            <span className="text-sm" style={{ color: palette.textSecondary }}>°C</span>
+                        </div>
+                        <div className="text-xs mt-2" style={{ color: palette.textSecondary }}>Normal range</div>
+                    </div>
+                    )}
+                </div>
+
+                {/* Bottom Row: Respiration - Only show if data available */}
+                {(respirationRate !== null && respirationRate !== undefined) && (
+                <div className="p-4 rounded-xl border" style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                    borderColor: palette.brand + '40',
+                    boxShadow: `0 2px 8px ${palette.brand}15`
+                }}>
+                    <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xs font-bold uppercase" style={{ color: palette.textSecondary }}>Respiration</span>
+                        <span className="text-2xl font-mono font-bold" style={{ color: palette.warning }}>{respirationRate}</span>
+                        <span className="text-xs" style={{ color: palette.textSecondary }}>breaths/min</span>
+                    </div>
+                    <div className="h-20 relative rounded overflow-hidden" style={{ backgroundColor: palette.muted }} ref={respContainerRef}>
+                        <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 1000 100">
+                            <path d={respirationPath} stroke="#FFD700" fill="none" strokeWidth="2" mask="url(#maskEcg)" />
+                        </svg>
+                    </div>
+                </div>
                 )}
             </div>
 

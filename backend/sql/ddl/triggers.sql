@@ -84,6 +84,7 @@ BEGIN
     DECLARE v_threshold_type ENUM('warning', 'critical');
     DECLARE v_message TEXT;
     DECLARE v_patient BIGINT UNSIGNED;
+    DECLARE v_duplicate_count INT UNSIGNED DEFAULT 0;
     
     SET v_patient = NEW.patient_id;
     
@@ -104,17 +105,30 @@ BEGIN
         ORDER BY (patient_id IS NOT NULL) DESC
         LIMIT 1;
         
-        -- If critical threshold breached, create critical alert
+        -- If critical threshold breached, check for duplicate before creating alert
         IF (v_min IS NOT NULL AND v_value < v_min) OR (v_max IS NOT NULL AND v_value > v_max) THEN
-            SET v_message = CONCAT(
-                'Critical threshold breach for ', v_name, 
-                ': value=', v_value,
-                IF(v_min IS NOT NULL, CONCAT(', min=', v_min), ''),
-                IF(v_max IS NOT NULL, CONCAT(', max=', v_max), '')
-            );
+            -- Check if similar alert exists within last 10 minutes
+            SELECT COUNT(*)
+            INTO v_duplicate_count
+            FROM alerts
+            WHERE patient_id = v_patient
+                AND alert_type = 'critical'
+                AND threshold = v_name
+                AND acknowledged_at IS NULL
+                AND created_at >= DATE_SUB(NOW(6), INTERVAL 10 MINUTE);
             
-            INSERT INTO alerts(patient_id, alert_type, message, created_at)
-            VALUES (v_patient, 'critical', v_message, NOW(6));
+            -- Only insert if no duplicate found
+            IF v_duplicate_count = 0 THEN
+                SET v_message = CONCAT(
+                    'Critical threshold breach for ', v_name, 
+                    ': value=', v_value,
+                    IF(v_min IS NOT NULL, CONCAT(', min=', v_min), ''),
+                    IF(v_max IS NOT NULL, CONCAT(', max=', v_max), '')
+                );
+                
+                INSERT INTO alerts(patient_id, alert_type, message, threshold, created_at)
+                VALUES (v_patient, 'critical', v_message, v_name, NOW(6));
+            END IF;
         ELSE
             -- Check warning threshold (patient-specific then global)
             SELECT min_value, max_value, type
@@ -126,17 +140,30 @@ BEGIN
             ORDER BY (patient_id IS NOT NULL) DESC
             LIMIT 1;
             
-            -- If warning threshold breached, create warning alert
+            -- If warning threshold breached, check for duplicate before creating alert
             IF (v_min IS NOT NULL AND v_value < v_min) OR (v_max IS NOT NULL AND v_value > v_max) THEN
-                SET v_message = CONCAT(
-                    'Warning threshold breach for ', v_name, 
-                    ': value=', v_value,
-                    IF(v_min IS NOT NULL, CONCAT(', min=', v_min), ''),
-                    IF(v_max IS NOT NULL, CONCAT(', max=', v_max), '')
-                );
+                -- Check if similar alert exists within last 10 minutes
+                SELECT COUNT(*)
+                INTO v_duplicate_count
+                FROM alerts
+                WHERE patient_id = v_patient
+                    AND alert_type = 'warning'
+                    AND threshold = v_name
+                    AND acknowledged_at IS NULL
+                    AND created_at >= DATE_SUB(NOW(6), INTERVAL 10 MINUTE);
                 
-                INSERT INTO alerts(patient_id, alert_type, message, created_at)
-                VALUES (v_patient, 'warning', v_message, NOW(6));
+                -- Only insert if no duplicate found
+                IF v_duplicate_count = 0 THEN
+            SET v_message = CONCAT(
+                        'Warning threshold breach for ', v_name, 
+                ': value=', v_value,
+                IF(v_min IS NOT NULL, CONCAT(', min=', v_min), ''),
+                        IF(v_max IS NOT NULL, CONCAT(', max=', v_max), '')
+            );
+            
+                    INSERT INTO alerts(patient_id, alert_type, message, threshold, created_at)
+                    VALUES (v_patient, 'warning', v_message, v_name, NOW(6));
+                END IF;
             END IF;
         END IF;
     END IF;
@@ -158,17 +185,30 @@ BEGIN
         ORDER BY (patient_id IS NOT NULL) DESC
         LIMIT 1;
         
-        -- If critical threshold breached, create critical alert
+        -- If critical threshold breached, check for duplicate before creating alert
         IF (v_min IS NOT NULL AND v_value < v_min) OR (v_max IS NOT NULL AND v_value > v_max) THEN
-            SET v_message = CONCAT(
-                'Critical threshold breach for ', v_name, 
-                ': value=', v_value,
-                IF(v_min IS NOT NULL, CONCAT(', min=', v_min), ''),
-                IF(v_max IS NOT NULL, CONCAT(', max=', v_max), '')
-            );
+            -- Check if similar alert exists within last 10 minutes
+            SELECT COUNT(*)
+            INTO v_duplicate_count
+            FROM alerts
+            WHERE patient_id = v_patient
+                AND alert_type = 'critical'
+                AND threshold = v_name
+                AND acknowledged_at IS NULL
+                AND created_at >= DATE_SUB(NOW(6), INTERVAL 10 MINUTE);
             
-            INSERT INTO alerts(patient_id, alert_type, message, created_at)
-            VALUES (v_patient, 'critical', v_message, NOW(6));
+            -- Only insert if no duplicate found
+            IF v_duplicate_count = 0 THEN
+                SET v_message = CONCAT(
+                    'Critical threshold breach for ', v_name, 
+                    ': value=', v_value,
+                    IF(v_min IS NOT NULL, CONCAT(', min=', v_min), ''),
+                    IF(v_max IS NOT NULL, CONCAT(', max=', v_max), '')
+                );
+                
+                INSERT INTO alerts(patient_id, alert_type, message, threshold, created_at)
+                VALUES (v_patient, 'critical', v_message, v_name, NOW(6));
+            END IF;
         ELSE
             -- Check warning threshold (patient-specific then global)
             SELECT min_value, max_value, type
@@ -180,17 +220,30 @@ BEGIN
             ORDER BY (patient_id IS NOT NULL) DESC
             LIMIT 1;
             
-            -- If warning threshold breached, create warning alert
+            -- If warning threshold breached, check for duplicate before creating alert
             IF (v_min IS NOT NULL AND v_value < v_min) OR (v_max IS NOT NULL AND v_value > v_max) THEN
-                SET v_message = CONCAT(
-                    'Warning threshold breach for ', v_name, 
-                    ': value=', v_value,
-                    IF(v_min IS NOT NULL, CONCAT(', min=', v_min), ''),
-                    IF(v_max IS NOT NULL, CONCAT(', max=', v_max), '')
-                );
+                -- Check if similar alert exists within last 10 minutes
+                SELECT COUNT(*)
+                INTO v_duplicate_count
+                FROM alerts
+                WHERE patient_id = v_patient
+                    AND alert_type = 'warning'
+                    AND threshold = v_name
+                    AND acknowledged_at IS NULL
+                    AND created_at >= DATE_SUB(NOW(6), INTERVAL 10 MINUTE);
                 
-                INSERT INTO alerts(patient_id, alert_type, message, created_at)
-                VALUES (v_patient, 'warning', v_message, NOW(6));
+                -- Only insert if no duplicate found
+                IF v_duplicate_count = 0 THEN
+            SET v_message = CONCAT(
+                        'Warning threshold breach for ', v_name, 
+                ': value=', v_value,
+                IF(v_min IS NOT NULL, CONCAT(', min=', v_min), ''),
+                IF(v_max IS NOT NULL, CONCAT(', max=', v_max), '')
+            );
+            
+                    INSERT INTO alerts(patient_id, alert_type, message, threshold, created_at)
+                    VALUES (v_patient, 'warning', v_message, v_name, NOW(6));
+                END IF;
             END IF;
         END IF;
     END IF;
@@ -212,12 +265,25 @@ BEGIN
         ORDER BY (patient_id IS NOT NULL) DESC
         LIMIT 1;
         
-        -- If critical threshold breached, create critical alert
+        -- If critical threshold breached, check for duplicate before creating alert
         IF (v_min IS NOT NULL AND v_value < v_min) OR (v_max IS NOT NULL AND v_value > v_max) THEN
-            SET v_message = CONCAT('Critical threshold breach for ', v_name, ': value=', v_value);
+            -- Check if similar alert exists within last 10 minutes
+            SELECT COUNT(*)
+            INTO v_duplicate_count
+            FROM alerts
+            WHERE patient_id = v_patient
+                AND alert_type = 'critical'
+                AND threshold = v_name
+                AND acknowledged_at IS NULL
+                AND created_at >= DATE_SUB(NOW(6), INTERVAL 10 MINUTE);
             
-            INSERT INTO alerts(patient_id, alert_type, message, created_at)
-            VALUES (v_patient, 'critical', v_message, NOW(6));
+            -- Only insert if no duplicate found
+            IF v_duplicate_count = 0 THEN
+                SET v_message = CONCAT('Critical threshold breach for ', v_name, ': value=', v_value);
+                
+                INSERT INTO alerts(patient_id, alert_type, message, threshold, created_at)
+                VALUES (v_patient, 'critical', v_message, v_name, NOW(6));
+            END IF;
         ELSE
             -- Check warning threshold (patient-specific then global)
             SELECT min_value, max_value, type
@@ -229,12 +295,25 @@ BEGIN
             ORDER BY (patient_id IS NOT NULL) DESC
             LIMIT 1;
             
-            -- If warning threshold breached, create warning alert
+            -- If warning threshold breached, check for duplicate before creating alert
             IF (v_min IS NOT NULL AND v_value < v_min) OR (v_max IS NOT NULL AND v_value > v_max) THEN
-                SET v_message = CONCAT('Warning threshold breach for ', v_name, ': value=', v_value);
-            
-                INSERT INTO alerts(patient_id, alert_type, message, created_at)
-                VALUES (v_patient, 'warning', v_message, NOW(6));
+                -- Check if similar alert exists within last 10 minutes
+                SELECT COUNT(*)
+                INTO v_duplicate_count
+                FROM alerts
+                WHERE patient_id = v_patient
+                    AND alert_type = 'warning'
+                    AND threshold = v_name
+                    AND acknowledged_at IS NULL
+                    AND created_at >= DATE_SUB(NOW(6), INTERVAL 10 MINUTE);
+                
+                -- Only insert if no duplicate found
+                IF v_duplicate_count = 0 THEN
+                    SET v_message = CONCAT('Warning threshold breach for ', v_name, ': value=', v_value);
+                    
+                    INSERT INTO alerts(patient_id, alert_type, message, threshold, created_at)
+                    VALUES (v_patient, 'warning', v_message, v_name, NOW(6));
+                END IF;
             END IF;
         END IF;
     END IF;
@@ -256,12 +335,25 @@ BEGIN
         ORDER BY (patient_id IS NOT NULL) DESC
         LIMIT 1;
         
-        -- If critical threshold breached, create critical alert
+        -- If critical threshold breached, check for duplicate before creating alert
         IF (v_min IS NOT NULL AND v_value < v_min) OR (v_max IS NOT NULL AND v_value > v_max) THEN
-            SET v_message = CONCAT('Critical threshold breach for ', v_name, ': value=', v_value);
+            -- Check if similar alert exists within last 10 minutes
+            SELECT COUNT(*)
+            INTO v_duplicate_count
+            FROM alerts
+            WHERE patient_id = v_patient
+                AND alert_type = 'critical'
+                AND threshold = v_name
+                AND acknowledged_at IS NULL
+                AND created_at >= DATE_SUB(NOW(6), INTERVAL 10 MINUTE);
             
-            INSERT INTO alerts(patient_id, alert_type, message, created_at)
-            VALUES (v_patient, 'critical', v_message, NOW(6));
+            -- Only insert if no duplicate found
+            IF v_duplicate_count = 0 THEN
+                SET v_message = CONCAT('Critical threshold breach for ', v_name, ': value=', v_value);
+                
+                INSERT INTO alerts(patient_id, alert_type, message, threshold, created_at)
+                VALUES (v_patient, 'critical', v_message, v_name, NOW(6));
+            END IF;
         ELSE
             -- Check warning threshold (patient-specific then global)
             SELECT min_value, max_value, type
@@ -273,12 +365,25 @@ BEGIN
             ORDER BY (patient_id IS NOT NULL) DESC
             LIMIT 1;
             
-            -- If warning threshold breached, create warning alert
+            -- If warning threshold breached, check for duplicate before creating alert
             IF (v_min IS NOT NULL AND v_value < v_min) OR (v_max IS NOT NULL AND v_value > v_max) THEN
-                SET v_message = CONCAT('Warning threshold breach for ', v_name, ': value=', v_value);
-            
-                INSERT INTO alerts(patient_id, alert_type, message, created_at)
-                VALUES (v_patient, 'warning', v_message, NOW(6));
+                -- Check if similar alert exists within last 10 minutes
+                SELECT COUNT(*)
+                INTO v_duplicate_count
+                FROM alerts
+                WHERE patient_id = v_patient
+                    AND alert_type = 'warning'
+                    AND threshold = v_name
+                    AND acknowledged_at IS NULL
+                    AND created_at >= DATE_SUB(NOW(6), INTERVAL 10 MINUTE);
+                
+                -- Only insert if no duplicate found
+                IF v_duplicate_count = 0 THEN
+                    SET v_message = CONCAT('Warning threshold breach for ', v_name, ': value=', v_value);
+                    
+                    INSERT INTO alerts(patient_id, alert_type, message, threshold, created_at)
+                    VALUES (v_patient, 'warning', v_message, v_name, NOW(6));
+                END IF;
             END IF;
         END IF;
     END IF;
@@ -300,12 +405,25 @@ BEGIN
         ORDER BY (patient_id IS NOT NULL) DESC
         LIMIT 1;
         
-        -- If critical threshold breached, create critical alert
+        -- If critical threshold breached, check for duplicate before creating alert
         IF (v_min IS NOT NULL AND v_value < v_min) OR (v_max IS NOT NULL AND v_value > v_max) THEN
-            SET v_message = CONCAT('Critical threshold breach for ', v_name, ': value=', v_value);
+            -- Check if similar alert exists within last 10 minutes
+            SELECT COUNT(*)
+            INTO v_duplicate_count
+            FROM alerts
+            WHERE patient_id = v_patient
+                AND alert_type = 'critical'
+                AND threshold = v_name
+                AND acknowledged_at IS NULL
+                AND created_at >= DATE_SUB(NOW(6), INTERVAL 10 MINUTE);
             
-            INSERT INTO alerts(patient_id, alert_type, message, created_at)
-            VALUES (v_patient, 'critical', v_message, NOW(6));
+            -- Only insert if no duplicate found
+            IF v_duplicate_count = 0 THEN
+                SET v_message = CONCAT('Critical threshold breach for ', v_name, ': value=', v_value);
+                
+                INSERT INTO alerts(patient_id, alert_type, message, threshold, created_at)
+                VALUES (v_patient, 'critical', v_message, v_name, NOW(6));
+            END IF;
         ELSE
             -- Check warning threshold (patient-specific then global)
             SELECT min_value, max_value, type
@@ -317,12 +435,25 @@ BEGIN
             ORDER BY (patient_id IS NOT NULL) DESC
             LIMIT 1;
             
-            -- If warning threshold breached, create warning alert
+            -- If warning threshold breached, check for duplicate before creating alert
             IF (v_min IS NOT NULL AND v_value < v_min) OR (v_max IS NOT NULL AND v_value > v_max) THEN
-                SET v_message = CONCAT('Warning threshold breach for ', v_name, ': value=', v_value);
-            
-                INSERT INTO alerts(patient_id, alert_type, message, created_at)
-                VALUES (v_patient, 'warning', v_message, NOW(6));
+                -- Check if similar alert exists within last 10 minutes
+                SELECT COUNT(*)
+                INTO v_duplicate_count
+                FROM alerts
+                WHERE patient_id = v_patient
+                    AND alert_type = 'warning'
+                    AND threshold = v_name
+                    AND acknowledged_at IS NULL
+                    AND created_at >= DATE_SUB(NOW(6), INTERVAL 10 MINUTE);
+                
+                -- Only insert if no duplicate found
+                IF v_duplicate_count = 0 THEN
+                    SET v_message = CONCAT('Warning threshold breach for ', v_name, ': value=', v_value);
+                    
+                    INSERT INTO alerts(patient_id, alert_type, message, threshold, created_at)
+                    VALUES (v_patient, 'warning', v_message, v_name, NOW(6));
+                END IF;
             END IF;
         END IF;
     END IF;
@@ -344,12 +475,25 @@ BEGIN
         ORDER BY (patient_id IS NOT NULL) DESC
         LIMIT 1;
         
-        -- If critical threshold breached, create critical alert
+        -- If critical threshold breached, check for duplicate before creating alert
         IF (v_min IS NOT NULL AND v_value < v_min) OR (v_max IS NOT NULL AND v_value > v_max) THEN
-            SET v_message = CONCAT('Critical threshold breach for ', v_name, ': value=', v_value);
+            -- Check if similar alert exists within last 10 minutes
+            SELECT COUNT(*)
+            INTO v_duplicate_count
+            FROM alerts
+            WHERE patient_id = v_patient
+                AND alert_type = 'critical'
+                AND threshold = v_name
+                AND acknowledged_at IS NULL
+                AND created_at >= DATE_SUB(NOW(6), INTERVAL 10 MINUTE);
             
-            INSERT INTO alerts(patient_id, alert_type, message, created_at)
-            VALUES (v_patient, 'critical', v_message, NOW(6));
+            -- Only insert if no duplicate found
+            IF v_duplicate_count = 0 THEN
+                SET v_message = CONCAT('Critical threshold breach for ', v_name, ': value=', v_value);
+                
+                INSERT INTO alerts(patient_id, alert_type, message, threshold, created_at)
+                VALUES (v_patient, 'critical', v_message, v_name, NOW(6));
+            END IF;
         ELSE
             -- Check warning threshold (patient-specific then global)
             SELECT min_value, max_value, type
@@ -361,12 +505,25 @@ BEGIN
             ORDER BY (patient_id IS NOT NULL) DESC
             LIMIT 1;
             
-            -- If warning threshold breached, create warning alert
+            -- If warning threshold breached, check for duplicate before creating alert
             IF (v_min IS NOT NULL AND v_value < v_min) OR (v_max IS NOT NULL AND v_value > v_max) THEN
-                SET v_message = CONCAT('Warning threshold breach for ', v_name, ': value=', v_value);
-            
-                INSERT INTO alerts(patient_id, alert_type, message, created_at)
-                VALUES (v_patient, 'warning', v_message, NOW(6));
+                -- Check if similar alert exists within last 10 minutes
+                SELECT COUNT(*)
+                INTO v_duplicate_count
+                FROM alerts
+                WHERE patient_id = v_patient
+                    AND alert_type = 'warning'
+                    AND threshold = v_name
+                    AND acknowledged_at IS NULL
+                    AND created_at >= DATE_SUB(NOW(6), INTERVAL 10 MINUTE);
+                
+                -- Only insert if no duplicate found
+                IF v_duplicate_count = 0 THEN
+                    SET v_message = CONCAT('Warning threshold breach for ', v_name, ': value=', v_value);
+                    
+                    INSERT INTO alerts(patient_id, alert_type, message, threshold, created_at)
+                    VALUES (v_patient, 'warning', v_message, v_name, NOW(6));
+                END IF;
             END IF;
         END IF;
     END IF;

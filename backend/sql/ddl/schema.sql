@@ -19,6 +19,16 @@ SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ERROR_FOR_DIV
 -- Note: In production, tune SQL_MODE and other settings appropriately.
 
 -- ============================================================================
+-- Simulation Config Table (for tracking simulation start time)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS simulation_config (
+    config_key VARCHAR(100) NOT NULL,
+    config_value TEXT DEFAULT NULL,
+    updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (config_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
 -- Core Tables
 -- ============================================================================
 
@@ -253,6 +263,7 @@ CREATE TABLE IF NOT EXISTS alerts (
     patient_id BIGINT UNSIGNED NOT NULL,
     alert_type ENUM('warning', 'critical', 'emergency') NOT NULL,
     message TEXT NOT NULL,
+    threshold VARCHAR(64) DEFAULT NULL,  -- Name of threshold that was exceeded (e.g., 'heart_rate', 'spo2')
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     acknowledged_at DATETIME(6) DEFAULT NULL,
     PRIMARY KEY (alert_id),
@@ -262,5 +273,6 @@ CREATE TABLE IF NOT EXISTS alerts (
         ON DELETE CASCADE,
     INDEX idx_alerts_patient_created (patient_id, created_at),
     INDEX idx_alerts_created_at (created_at),
-    INDEX idx_alerts_type (alert_type)
+    INDEX idx_alerts_type (alert_type),
+    INDEX idx_alerts_threshold (threshold)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

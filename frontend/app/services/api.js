@@ -314,3 +314,60 @@ export async function getUnacknowledgedAlerts(patientId) {
         throw error;
     }
 }
+
+/**
+ * Fetch all unacknowledged alerts for all patients (staff only)
+ * @returns {Promise<Array>} List of unacknowledged alerts
+ */
+export async function getAllUnacknowledgedAlerts() {
+    try {
+        const token = getToken();
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/alerts/unacknowledged`, {
+            headers: headers
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch all unacknowledged alerts');
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching all unacknowledged alerts:', error);
+        throw error;
+    }
+}
+
+/**
+ * Acknowledge an alert.
+ * @param {number} alertId
+ * @returns {Promise<Object>} Updated alert record
+ */
+export async function acknowledgeAlert(alertId) {
+    try {
+        const token = getToken();
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/alerts/${alertId}/acknowledge`, {
+            method: 'POST',
+            headers: headers
+        });
+        if (!response.ok) {
+            const errorBody = await response.json();
+            throw new Error(errorBody.detail || 'Failed to acknowledge alert');
+        }
+        return await response.json();
+    } catch (error) {
+        console.error(`Error acknowledging alert ${alertId}:`, error);
+        throw error;
+    }
+}

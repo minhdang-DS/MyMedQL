@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import ProtectedRoute from "../../../components/ProtectedRoute";
-import { getPatients, getPatientHistory, getThresholds, updateThreshold, deletePatient } from "../../services/api";
+import { getPatients, getPatientHistory, getThresholds, updateThreshold, deletePatient, getAllUnacknowledgedAlerts, acknowledgeAlert } from "../../services/api";
 import { useWebSocket } from "../../hooks/useWebSocket";
 
 const palette = {
@@ -93,6 +93,87 @@ export default function StaffPage() {
     fetchThresholdsData();
   }, []);
 
+  // Fetch alerts from database - ONLY source for live alerts
+  useEffect(() => {
+    async function fetchDatabaseAlerts() {
+      try {
+        const dbAlerts = await getAllUnacknowledgedAlerts();
+        console.log("📋 Fetched alerts from database:", dbAlerts.length);
+        
+        // Convert database alerts to frontend format
+        const formattedAlerts = dbAlerts.map(alert => {
+          // Extract time from created_at - use database time directly without timezone conversion
+          // Database stores time in UTC/server timezone, extract HH:MM:SS directly from ISO string
+          let timeStr = '';
+          if (alert.created_at) {
+            const created_at_str = String(alert.created_at);
+            // Handle both ISO format (2025-12-21T07:28:30.970555) and space-separated format
+            if (created_at_str.includes('T')) {
+              // ISO format: extract time part after 'T'
+              timeStr = created_at_str.split('T')[1].substring(0, 8); // Get HH:MM:SS
+            } else if (created_at_str.includes(' ')) {
+              // Space-separated format: extract time part after space
+              timeStr = created_at_str.split(' ')[1].substring(0, 8); // Get HH:MM:SS
+            } else {
+              // Fallback: try to extract time pattern
+              const timeMatch = created_at_str.match(/(\d{2}):(\d{2}):(\d{2})/);
+              if (timeMatch) {
+                timeStr = timeMatch[0];
+              } else {
+                timeStr = created_at_str.substring(11, 19); // Try substring method
+              }
+            }
+          }
+          
+          // Map alert_type to severity
+          const severityMap = {
+            'warning': 'Warning',
+            'critical': 'Critical',
+            'emergency': 'Critical'
+          };
+          
+          // Map threshold to alert type
+          const typeMap = {
+            'heart_rate': 'Tachycardia/Bradycardia',
+            'spo2': 'Low SpO2',
+            'bp_systolic': 'High/Low Systolic BP',
+            'bp_diastolic': 'High/Low Diastolic BP',
+            'temperature_c': 'Temperature Alert',
+            'respiration': 'Respiration Alert'
+          };
+          
+          const alertType = alert.threshold ? typeMap[alert.threshold] || alert.threshold : 'Emergency Help Request';
+          
+          return {
+            id: `db-${alert.alert_id}`,
+            alert_id: alert.alert_id, // Store database alert_id for acknowledgment
+            type: alertType,
+            patient: alert.patient_name || `Patient ${alert.patient_id}`,
+            severity: severityMap[alert.alert_type] || 'Critical',
+            time: timeStr,
+            timestamp: alert.created_at,
+            desc: alert.message,
+            patient_id: alert.patient_id,
+            threshold: alert.threshold,
+            acknowledged_at: alert.acknowledged_at, // Store acknowledged_at to check if acknowledged
+            fromDatabase: true // Flag to identify database alerts
+          };
+        });
+        
+        // Replace all alerts with database alerts (including acknowledged ones)
+        setAlerts(formattedAlerts);
+      } catch (error) {
+        console.error("Error fetching database alerts:", error);
+      }
+    }
+    
+    fetchDatabaseAlerts();
+    
+    // Refresh alerts from database every 1 second
+    const interval = setInterval(fetchDatabaseAlerts, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Fetch patients and their latest vitals
   useEffect(() => {
     let isMounted = true; // Track if component is still mounted
@@ -176,60 +257,7 @@ export default function StaffPage() {
         setPatients(patientsWithVitals);
         console.log("Patients state updated!");
         
-        // Generate alerts from patients using thresholds
-        // Only create critical alerts if they don't exist OR if they exist but are not acknowledged
-        // Don't create warning alerts - we'll just count patients in warning state
-        setAlerts(prevAlerts => {
-          const alertMap = new Map(prevAlerts.map(a => [a.id, a]));
-          const hrCritical = getThresholdValue(thresholds, 'heart_rate', 'critical');
-          const spo2Critical = getThresholdValue(thresholds, 'spo2', 'critical');
-          
-          patientsWithVitals.forEach((p) => {
-            // Check for critical heart rate alerts - only create if not already acknowledged
-            if (p.heartRate !== null && p.heartRate !== undefined && hrCritical) {
-              if ((hrCritical.min_value !== null && p.heartRate < hrCritical.min_value) ||
-                  (hrCritical.max_value !== null && p.heartRate > hrCritical.max_value)) {
-                const alertId = `hr-critical-${p.id}`;
-                // Only create alert if it doesn't exist OR if it exists but is not acknowledged
-                const existingAlert = alertMap.get(alertId);
-                if (!existingAlert || !acknowledgedAlerts.has(alertId)) {
-                  if (!existingAlert) {
-                    alertMap.set(alertId, {
-                      id: alertId,
-                      type: "Tachycardia/Bradycardia",
-                      patient: p.name,
-                      severity: "Critical",
-                      time: new Date().toLocaleTimeString(),
-                      desc: `HR ${hrCritical.max_value !== null && p.heartRate > hrCritical.max_value ? '>' : '<'} ${hrCritical.max_value !== null && p.heartRate > hrCritical.max_value ? hrCritical.max_value : hrCritical.min_value} bpm`
-                    });
-                  }
-                }
-              }
-            }
-            // Check for critical SpO2 alerts - only create if not already acknowledged
-            if (p.spo2 !== null && p.spo2 !== undefined && spo2Critical) {
-              if ((spo2Critical.min_value !== null && p.spo2 < spo2Critical.min_value) ||
-                  (spo2Critical.max_value !== null && p.spo2 > spo2Critical.max_value)) {
-                const alertId = `spo2-critical-${p.id}`;
-                // Only create alert if it doesn't exist OR if it exists but is not acknowledged
-                const existingAlert = alertMap.get(alertId);
-                if (!existingAlert || !acknowledgedAlerts.has(alertId)) {
-                  if (!existingAlert) {
-                    alertMap.set(alertId, {
-                      id: alertId,
-                      type: "Low SpO2",
-                      patient: p.name,
-                      severity: "Critical",
-                      time: new Date().toLocaleTimeString(),
-                      desc: `SpO2 ${spo2Critical.max_value !== null && p.spo2 > spo2Critical.max_value ? '>' : '<'} ${spo2Critical.max_value !== null && p.spo2 > spo2Critical.max_value ? spo2Critical.max_value : spo2Critical.min_value}%`
-                    });
-                  }
-                }
-              }
-            }
-          });
-          return Array.from(alertMap.values());
-        });
+        // Alerts are now ONLY fetched from database - no generation from vitals
       } catch (error) {
         console.error("=== ERROR FETCHING PATIENTS ===");
         console.error("Error:", error);
@@ -256,35 +284,9 @@ export default function StaffPage() {
     };
   }, [thresholds, acknowledgedAlerts]);
 
-  // Handle WebSocket updates for real-time vitals and emergency alerts
+  // Handle WebSocket updates for real-time vitals
+  // Note: Alerts are now ONLY fetched from database, not generated from WebSocket messages
   useEffect(() => {
-    // Handle emergency alerts
-    if (lastMessage && lastMessage.type === "emergency_alert" && lastMessage.alert) {
-      console.log("🚨 Received emergency alert:", lastMessage);
-      const emergencyAlert = lastMessage.alert;
-      setAlerts(prevAlerts => {
-        const alertMap = new Map(prevAlerts.map(a => [a.id, a]));
-        // Add emergency alert if it doesn't exist
-        if (!alertMap.has(emergencyAlert.id)) {
-          const newAlert = {
-            id: emergencyAlert.id,
-            type: emergencyAlert.type,
-            patient: emergencyAlert.patient,
-            severity: emergencyAlert.severity || "Critical", // Ensure severity is set
-            time: emergencyAlert.time,
-            desc: emergencyAlert.desc
-          };
-          console.log("🚨 Adding emergency alert to state:", newAlert);
-          alertMap.set(emergencyAlert.id, newAlert);
-        } else {
-          console.log("🚨 Emergency alert already exists:", emergencyAlert.id);
-        }
-        const updatedAlerts = Array.from(alertMap.values());
-        console.log("🚨 Updated alerts list:", updatedAlerts);
-        return updatedAlerts;
-      });
-      return;
-    }
     
     // Handle vitals updates
     if (lastMessage && lastMessage.type === "vitals_update" && lastMessage.data && Array.isArray(lastMessage.data)) {
@@ -325,67 +327,7 @@ export default function StaffPage() {
             }
           });
           
-          // Update alerts - only create critical alerts if they don't exist OR if they exist but are not acknowledged
-          // Don't create warning alerts - we'll just count patients in warning state
-          setAlerts(prevAlerts => {
-            const alertMap = new Map(prevAlerts.map(a => [a.id, a]));
-            
-            lastMessage.data.forEach((vital) => {
-              if (!vital || typeof vital.patient_id === 'undefined') {
-                return;
-              }
-              
-              const patientId = Number(vital.patient_id);
-              const patient = patientMap.get(patientId);
-              
-              if (!patient) return;
-              
-              // Check for critical heart rate alerts - only create if not already acknowledged
-              if (vital.heart_rate !== null && vital.heart_rate !== undefined && hrCritical) {
-                if ((hrCritical.min_value !== null && vital.heart_rate < hrCritical.min_value) ||
-                    (hrCritical.max_value !== null && vital.heart_rate > hrCritical.max_value)) {
-                  const alertId = `hr-critical-${patientId}`;
-                  // Only create alert if it doesn't exist OR if it exists but is not acknowledged
-                  const existingAlert = alertMap.get(alertId);
-                  if (!existingAlert || !acknowledgedAlerts.has(alertId)) {
-                    if (!existingAlert) {
-                      alertMap.set(alertId, {
-                        id: alertId,
-                        type: "Tachycardia/Bradycardia",
-                        patient: patient.name,
-                        severity: "Critical",
-                        time: new Date().toLocaleTimeString(),
-                        desc: `HR ${hrCritical.max_value !== null && vital.heart_rate > hrCritical.max_value ? '>' : '<'} ${hrCritical.max_value !== null && vital.heart_rate > hrCritical.max_value ? hrCritical.max_value : hrCritical.min_value} bpm`
-                      });
-                    }
-                  }
-                }
-              }
-              // Check for critical SpO2 alerts - only create if not already acknowledged
-              if (vital.spo2 !== null && vital.spo2 !== undefined && spo2Critical) {
-                if ((spo2Critical.min_value !== null && vital.spo2 < spo2Critical.min_value) ||
-                    (spo2Critical.max_value !== null && vital.spo2 > spo2Critical.max_value)) {
-                  const alertId = `spo2-critical-${patientId}`;
-                  // Only create alert if it doesn't exist OR if it exists but is not acknowledged
-                  const existingAlert = alertMap.get(alertId);
-                  if (!existingAlert || !acknowledgedAlerts.has(alertId)) {
-                    if (!existingAlert) {
-                      alertMap.set(alertId, {
-                        id: alertId,
-                        type: "Low SpO2",
-                        patient: patient.name,
-                        severity: "Critical",
-                        time: new Date().toLocaleTimeString(),
-                        desc: `SpO2 ${spo2Critical.max_value !== null && vital.spo2 > spo2Critical.max_value ? '>' : '<'} ${spo2Critical.max_value !== null && vital.spo2 > spo2Critical.max_value ? spo2Critical.max_value : spo2Critical.min_value}%`
-                      });
-                    }
-                  }
-                }
-              }
-            });
-            
-            return Array.from(alertMap.values());
-          });
+          // Alerts are now ONLY fetched from database - no generation from vitals
           
           return updatedPatients;
         });
@@ -466,8 +408,26 @@ export default function StaffPage() {
   }, [patients, thresholds]);
 
   // Handle alert acknowledgment
-  const handleAcknowledgeAlert = (alertId) => {
-    setAcknowledgedAlerts(prev => new Set([...prev, alertId]));
+  const handleAcknowledgeAlert = async (alertId) => {
+    try {
+      // Find the alert to get its database alert_id
+      const alert = alerts.find(a => a.id === alertId);
+      
+      if (alert && alert.alert_id) {
+        // This is a database alert - call the API
+        await acknowledgeAlert(alert.alert_id);
+        console.log(`✅ Acknowledged alert ${alert.alert_id} in database`);
+      }
+      
+      // Update local state - mark as acknowledged (but keep in list)
+      setAcknowledgedAlerts(prev => new Set([...prev, alertId]));
+      
+      // Don't remove from alerts list - it will be updated on next fetch and shown greyed out at bottom
+    } catch (error) {
+      console.error(`Error acknowledging alert ${alertId}:`, error);
+      // Still update local state even if API call fails
+      setAcknowledgedAlerts(prev => new Set([...prev, alertId]));
+    }
   };
 
   // Handle delete patient
@@ -529,8 +489,9 @@ export default function StaffPage() {
   };
 
   // Computed Stats - using useMemo to ensure reactivity
-  const patientsNeedingAttention = useMemo(() => patients.filter(p => p.priority < 3).length, [patients]);
-  // Critical alerts: only count unacknowledged ones
+  // Need Action count: use the same count as warning alerts card
+  const patientsNeedingAttention = warningPatientsCount;
+  // Critical alerts: only count unacknowledged critical ones
   const criticalAlertsCount = useMemo(() => 
     alerts.filter(a => a.severity === "Critical" && !acknowledgedAlerts.has(a.id)).length,
     [alerts, acknowledgedAlerts]
@@ -897,19 +858,23 @@ export default function StaffPage() {
                 </div>
 
                 <div className="flex flex-col max-h-96 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: `${palette.brand}40 transparent` }}>
-                  {/* Only show critical alerts (no warnings) */}
+                  {/* Show only critical alerts from database */}
                   {alerts
                     .filter(a => a.severity === "Critical") // Only show critical alerts
                     .sort((a, b) => {
-                      // Sort: unacknowledged critical first, then acknowledged
-                      const aAcknowledged = acknowledgedAlerts.has(a.id);
-                      const bAcknowledged = acknowledgedAlerts.has(b.id);
-                      if (aAcknowledged && !bAcknowledged) return 1;
-                      if (!aAcknowledged && bAcknowledged) return -1;
-                      return 0;
+                      // Sort: unacknowledged first (newest first), then acknowledged (newest first)
+                      const aAcknowledged = acknowledgedAlerts.has(a.id) || (a.acknowledged_at !== null && a.acknowledged_at !== undefined);
+                      const bAcknowledged = acknowledgedAlerts.has(b.id) || (b.acknowledged_at !== null && b.acknowledged_at !== undefined);
+                      if (aAcknowledged && !bAcknowledged) return 1; // a acknowledged, b not -> b first
+                      if (!aAcknowledged && bAcknowledged) return -1; // a not acknowledged, b acknowledged -> a first
+                      
+                      // Then sort by time (newest first) - like a stack
+                      const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                      const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                      return bTime - aTime; // Newest first (descending)
                     })
-                    .map((alert, idx) => {
-                    const isAcknowledged = acknowledgedAlerts.has(alert.id);
+                      .map((alert, idx) => {
+                    const isAcknowledged = acknowledgedAlerts.has(alert.id) || (alert.acknowledged_at !== null && alert.acknowledged_at !== undefined);
 
                       return (
                         <div key={alert.id} className={`group relative border-l-4 p-5 last:border-b-0 transition-all duration-150 ${isAcknowledged ? 'bg-gradient-to-r from-slate-50 to-slate-100/50' : 'bg-gradient-to-r from-white to-red-50/30'}`} style={{
@@ -937,6 +902,14 @@ export default function StaffPage() {
                             {alert.type}
                             <span className="font-normal" style={{ color: isAcknowledged ? '#94a3b8' : palette.textSecondary }}>in</span>
                             <span className="font-semibold" style={{ color: isAcknowledged ? '#64748b' : palette.navyDark }}>{alert.patient}</span>
+                            {alert.alert_id && (
+                              <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ 
+                                color: isAcknowledged ? '#94a3b8' : palette.textSecondary,
+                                backgroundColor: isAcknowledged ? '#e2e8f0' : palette.muted
+                              }}>
+                                ID: {alert.alert_id}
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs mt-2 font-mono px-3 py-2 rounded-lg border" style={{ 
                             color: isAcknowledged ? '#64748b' : palette.textPrimary,
@@ -1346,15 +1319,19 @@ export default function StaffPage() {
                     {alerts
                       .filter(a => a.severity === "Critical") // Only show critical alerts
                       .sort((a, b) => {
-                        const aAcknowledged = acknowledgedAlerts.has(a.id);
-                        const bAcknowledged = acknowledgedAlerts.has(b.id);
-                        if (aAcknowledged && !bAcknowledged) return 1;
-                        if (!aAcknowledged && bAcknowledged) return -1;
-                        return 0;
+                        const aAcknowledged = acknowledgedAlerts.has(a.id) || (a.acknowledged_at !== null && a.acknowledged_at !== undefined);
+                        const bAcknowledged = acknowledgedAlerts.has(b.id) || (b.acknowledged_at !== null && b.acknowledged_at !== undefined);
+                        if (aAcknowledged && !bAcknowledged) return 1; // a acknowledged, b not -> b first
+                        if (!aAcknowledged && bAcknowledged) return -1; // a not acknowledged, b acknowledged -> a first
+                        
+                        // Then sort by time (newest first) - like a stack
+                        const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                        const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                        return bTime - aTime; // Newest first (descending)
                       })
-                      .map((alert) => {
-                        const isCritical = alert.severity === 'Critical';
-                        const isAcknowledged = acknowledgedAlerts.has(alert.id);
+                        .map((alert) => {
+                          const isCritical = alert.severity === 'Critical';
+                          const isAcknowledged = acknowledgedAlerts.has(alert.id) || (alert.acknowledged_at !== null && alert.acknowledged_at !== undefined);
 
                       return (
                         <div key={alert.id} className={`group relative border-l-4 p-4 rounded-xl transition-all duration-150 ${isAcknowledged ? 'bg-gradient-to-r from-slate-50 to-slate-100/50' : 'bg-gradient-to-r from-white to-red-50/30'}`} style={{
@@ -1382,6 +1359,14 @@ export default function StaffPage() {
                               {alert.type}
                               <span className="font-normal" style={{ color: isAcknowledged ? '#94a3b8' : palette.textSecondary }}>in</span>
                               <span className="font-semibold" style={{ color: isAcknowledged ? '#64748b' : palette.navyDark }}>{alert.patient}</span>
+                              {alert.alert_id && (
+                                <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ 
+                                  color: isAcknowledged ? '#94a3b8' : palette.textSecondary,
+                                  backgroundColor: isAcknowledged ? '#e2e8f0' : palette.muted
+                                }}>
+                                  ID: {alert.alert_id}
+                                </span>
+                              )}
                             </div>
                             <div className="text-xs mt-2 font-mono px-3 py-2 rounded-lg border" style={{ 
                               color: isAcknowledged ? '#64748b' : palette.textPrimary,

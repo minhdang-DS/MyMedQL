@@ -197,6 +197,40 @@ def main():
     
     # Get all patient IDs from database
     engine = get_engine()
+    
+    # Acknowledge all existing alerts before starting
+    print("📋 Acknowledging all existing alerts...")
+    with engine.begin() as conn:
+        result = conn.execute(
+            text("""
+                UPDATE alerts
+                SET acknowledged_at = NOW(6)
+                WHERE acknowledged_at IS NULL
+            """)
+        )
+        acknowledged_count = result.rowcount
+        print(f"   ✅ Acknowledged {acknowledged_count} existing alert(s)\n")
+    
+    # Record simulation start time (use database NOW() to ensure same timezone)
+    print("📋 Recording simulation start time...")
+    with engine.begin() as conn:
+        # Use database NOW() to ensure timezone consistency
+        result = conn.execute(
+            text("""
+                INSERT INTO simulation_config (config_key, config_value, updated_at)
+                VALUES ('simulation_start_time', CAST(NOW(6) AS CHAR), NOW(6))
+                ON DUPLICATE KEY UPDATE
+                    config_value = CAST(NOW(6) AS CHAR),
+                    updated_at = NOW(6)
+            """)
+        )
+        # Get the recorded time for display
+        time_result = conn.execute(
+            text("SELECT config_value FROM simulation_config WHERE config_key = 'simulation_start_time'")
+        )
+        recorded_time = time_result.fetchone()[0]
+        print(f"   ✅ Simulation start time recorded: {recorded_time}\n")
+    
     patient_ids = get_all_patient_ids(engine)
     
     if not patient_ids:

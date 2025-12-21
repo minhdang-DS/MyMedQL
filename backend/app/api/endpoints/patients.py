@@ -359,12 +359,14 @@ async def create_emergency_alert(
                         patient_id,
                         alert_type,
                         message,
+                        threshold,
                         created_at
                     )
                     VALUES (
                         :patient_id,
                         'emergency',
                         :message,
+                        NULL,
                         NOW(6)
                     )
                 """),
@@ -379,7 +381,7 @@ async def create_emergency_alert(
             # Get the created alert
             alert_result = conn.execute(
                 text("""
-                    SELECT alert_id, patient_id, alert_type, message, created_at, acknowledged_at
+                    SELECT alert_id, patient_id, alert_type, message, threshold, created_at, acknowledged_at
                     FROM alerts
                     WHERE alert_id = :alert_id
                 """),
@@ -392,6 +394,31 @@ async def create_emergency_alert(
             # Get manager reference dynamically (it's set during startup)
             manager = websocket.manager
             if manager:
+                # Format time consistently - use ISO format for timezone consistency
+                created_at = alert_dict["created_at"]
+                
+                # Convert to ISO format string (preserves the exact database time)
+                if hasattr(created_at, "isoformat"):
+                    iso_time = created_at.isoformat()
+                else:
+                    iso_time = str(created_at)
+                
+                # Extract time portion from ISO string (HH:MM:SS) without timezone conversion
+                # This matches exactly what's in the database
+                if hasattr(created_at, "strftime"):
+                    # Format directly from datetime object (no timezone conversion)
+                    # Use the datetime as-is from database
+                    formatted_time = created_at.strftime("%H:%M:%S")
+                else:
+                    # If it's a string, extract time part
+                    time_str = str(created_at)
+                    if 'T' in time_str:
+                        formatted_time = time_str.split('T')[1][:8]  # Get HH:MM:SS from ISO
+                    elif ' ' in time_str:
+                        formatted_time = time_str.split(' ')[1][:8]  # Get HH:MM:SS from space-separated
+                    else:
+                        formatted_time = time_str[:8] if len(time_str) >= 8 else time_str
+                
                 alert_message = {
                     "type": "emergency_alert",
                     "alert": {
@@ -399,7 +426,8 @@ async def create_emergency_alert(
                         "type": "Emergency Help Request",
                         "patient": patient_name,
                         "severity": "Critical",
-                        "time": alert_dict["created_at"].strftime("%H:%M:%S") if hasattr(alert_dict["created_at"], "strftime") else str(alert_dict["created_at"]),
+                        "time": formatted_time,
+                        "timestamp": iso_time,  # ISO timestamp for sorting and timezone consistency
                         "desc": alert_dict["message"],
                         "patient_id": patient_id
                     }

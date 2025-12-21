@@ -93,3 +93,36 @@ button {
 .pause-on-hover:hover {
   animation-play-state: paused;
 }
+
+/* Disable all animations on critical alert elements */
+[style*="palette.danger"],
+[style*="danger"],
+.border-l-4[style*="danger"],
+.inline-flex[style*="danger"],
+.inline-block[style*="danger"],
+.flex[style*="danger"],
+.rounded-full[style*="danger"] {
+  animation: none !important;
+  transform: none !important;
+  transition: none !important;
+}
+
+/* Override Tailwind animate-pulse completely for all elements */
+.animate-pulse {
+  animation: none !important;
+}
+
+/* Override Tailwind animate-pulse for critical alerts specifically */
+.animate-pulse[style*="danger"],
+.animate-pulse[style*="red"],
+.animate-pulse[style*="palette.danger"],
+.rounded-full.animate-pulse[style*="danger"] {
+  animation: none !important;
+}
+
+/* Disable Tailwind's built-in animate-pulse globally for alert-related elements */
+.group[style*="danger"] .animate-pulse,
+.group[style*="danger"] *,
+.group[style*="danger"] .rounded-full {
+  animation: none !important;
+}

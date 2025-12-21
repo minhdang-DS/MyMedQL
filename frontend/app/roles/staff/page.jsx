@@ -890,27 +890,35 @@ export default function StaffPage() {
                     const isAcknowledged = acknowledgedAlerts.has(alert.id) || (alert.acknowledged_at !== null && alert.acknowledged_at !== undefined);
 
                       return (
-                        <div key={alert.id} className={`group relative border-l-4 p-5 last:border-b-0 transition-all duration-150 ${isAcknowledged ? 'bg-gradient-to-r from-slate-50 to-slate-100/50' : 'bg-gradient-to-r from-white to-red-50/30'}`} style={{
+                        <div key={alert.id} className={`group relative border-l-4 p-5 last:border-b-0 ${isAcknowledged ? 'bg-gradient-to-r from-slate-50 to-slate-100/50' : 'bg-gradient-to-r from-white to-red-50/30'}`} style={{
                           borderLeftColor: isAcknowledged ? '#94a3b8' : palette.danger,
-                          opacity: isAcknowledged ? 0.6 : 1
+                          opacity: isAcknowledged ? 0.6 : 1,
+                          animation: 'none !important',
+                          transform: 'none !important',
+                          transition: 'none !important'
                         }}>
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-3">
                             <span className={`inline-flex items-center rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${isAcknowledged ? 'text-slate-600' : 'text-white'}`} style={{
                               backgroundColor: isAcknowledged ? '#e2e8f0' : palette.danger,
-                              boxShadow: isAcknowledged ? 'none' : `0 4px 12px ${palette.danger}40`
+                              boxShadow: isAcknowledged ? 'none' : `0 4px 12px ${palette.danger}40`,
+                              animation: 'none !important',
+                              transform: 'none !important',
+                              transition: 'none !important'
                             }}>
                               {isAcknowledged ? 'Acknowledged' : alert.severity}
                             </span>
                             <span className="text-xs font-semibold" style={{ color: isAcknowledged ? '#94a3b8' : palette.textSecondary }}>{alert.time}</span>
                           </div>
-                          {!isAcknowledged && <span className="flex h-3 w-3 rounded-full animate-pulse" style={{ backgroundColor: palette.danger }}></span>}
+                          {!isAcknowledged && <span className="flex h-3 w-3 rounded-full" style={{ backgroundColor: palette.danger, animation: 'none !important', transform: 'none !important' }}></span>}
                         </div>
 
                         <div className="mb-4">
                           <div className="font-bold flex items-center gap-2 text-sm mb-1" style={{ color: isAcknowledged ? '#64748b' : palette.navyDark }}>
                             <span className={`inline-block w-2 h-2 rounded-full ${isAcknowledged ? '' : ''}`} style={{
-                              backgroundColor: isAcknowledged ? '#94a3b8' : palette.danger
+                              backgroundColor: isAcknowledged ? '#94a3b8' : palette.danger,
+                              animation: 'none !important',
+                              transform: 'none !important'
                             }}></span>
                             {alert.type}
                             <span className="font-normal" style={{ color: isAcknowledged ? '#94a3b8' : palette.textSecondary }}>in</span>
@@ -1371,21 +1379,26 @@ export default function StaffPage() {
                           const isAcknowledged = acknowledgedAlerts.has(alert.id) || (alert.acknowledged_at !== null && alert.acknowledged_at !== undefined);
 
                       return (
-                        <div key={alert.id} className={`group relative border-l-4 p-4 rounded-xl transition-all duration-150 ${isAcknowledged ? 'bg-gradient-to-r from-slate-50 to-slate-100/50' : 'bg-gradient-to-r from-white to-red-50/30'}`} style={{
+                        <div key={alert.id} className={`group relative border-l-4 p-4 rounded-xl ${isAcknowledged ? 'bg-gradient-to-r from-slate-50 to-slate-100/50' : 'bg-gradient-to-r from-white to-red-50/30'}`} style={{
                           borderLeftColor: isAcknowledged ? '#94a3b8' : palette.danger,
-                          opacity: isAcknowledged ? 0.6 : 1
+                          opacity: isAcknowledged ? 0.6 : 1,
+                          animation: 'none !important',
+                          transform: 'none !important',
+                          transition: 'none !important'
                         }}>
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex items-center gap-3">
                               <span className={`inline-flex items-center rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${isAcknowledged ? 'text-slate-600' : 'text-white'}`} style={{
                                 backgroundColor: isAcknowledged ? '#e2e8f0' : palette.danger,
-                                boxShadow: isAcknowledged ? 'none' : `0 4px 12px ${palette.danger}40`
+                                boxShadow: isAcknowledged ? 'none' : `0 4px 12px ${palette.danger}40`,
+                                animation: 'none',
+                                transform: 'none'
                               }}>
                                 {isAcknowledged ? 'Acknowledged' : alert.severity}
                               </span>
                               <span className="text-xs font-semibold" style={{ color: isAcknowledged ? '#94a3b8' : palette.textSecondary }}>{alert.time}</span>
                             </div>
-                            {!isAcknowledged && <span className="flex h-3 w-3 rounded-full animate-pulse" style={{ backgroundColor: palette.danger }}></span>}
+                            {!isAcknowledged && <span className="flex h-3 w-3 rounded-full" style={{ backgroundColor: palette.danger, animation: 'none !important', transform: 'none !important' }}></span>}
                           </div>
 
                           <div className="mb-3">

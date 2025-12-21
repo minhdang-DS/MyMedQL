@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { getPatientHistory, getPatient, getThresholds, getPatientDevice, createEmergencyAlert, getPatientAlerts } from "../app/services/api";
+import { getPatientHistory, getPatient, getThresholds, getPatientDevice, getPatientAlerts } from "../app/services/api";
 import { useWebSocket } from "../app/hooks/useWebSocket";
 
 // Use the same palette as staff page
@@ -534,14 +534,13 @@ function MedicalMonitoringDashboard({ isCritical, vitals }) {
 }
 
 // --- Main Reusable Patient Content Component ---
-export default function PatientDashboard({ patientId, isStaffView }) {
+export default function PatientDashboard({ patientId, isStaffView, onStatusChange }) {
     const [currentUser, setCurrentUser] = useState({ name: "Loading...", room: "...", status: "Stable", isCritical: false });
     const [isCritical, setIsCritical] = useState(false);
     const [vitals, setVitals] = useState(null);
     const [thresholds, setThresholds] = useState([]);
     const [alerts, setAlerts] = useState([]);
     const [device, setDevice] = useState({ device_type: null, serial_number: null, manufacturer: null });
-    const [emergencyConfirmOpen, setEmergencyConfirmOpen] = useState(false);
     const { lastMessage } = useWebSocket();
 
     // Fetch thresholds
@@ -580,7 +579,8 @@ export default function PatientDashboard({ patientId, isStaffView }) {
                             ? "Your care team has been notified and is monitoring your condition."
                             : "Please monitor closely and contact staff if needed.",
                         isCritical: isCritical,
-                        acknowledged: alert.acknowledged_at !== null
+                        acknowledged: alert.acknowledged_at !== null,
+                        fromDatabase: true // Mark as database alert
                     };
                 });
                 
@@ -710,17 +710,103 @@ export default function PatientDashboard({ patientId, isStaffView }) {
             // Generate alerts as fallback/complement to database alerts
             const generatedAlerts = generateAlerts(vitals, thresholds);
             
-            // If we have database alerts, merge them with generated ones (prioritize DB alerts)
-            // Otherwise, use generated alerts
-            if (alerts.length === 0 || alerts.every(a => a.acknowledged)) {
+            // If we have database alerts, check if we should merge generated alerts
+            // Only use generated alerts if we have no unacknowledged database alerts
+            const hasUnacknowledgedDbAlerts = alerts.some(a => !a.acknowledged && a.fromDatabase);
+            
+            if (!hasUnacknowledgedDbAlerts && (alerts.length === 0 || alerts.every(a => a.acknowledged))) {
                 setAlerts(generatedAlerts);
             }
         }
     }, [vitals, thresholds]);
 
-    // Determine status color based on alerts
-    const hasCriticalAlerts = alerts.some(a => a.isCritical);
-    const hasWarningAlerts = alerts.some(a => !a.isCritical && a.title.includes("Warning"));
+    // Determine patient status from both alerts and vitals/thresholds
+    // Priority: Critical > Warning > Stable
+    const determinePatientStatus = () => {
+        // First check alerts (most reliable source)
+        const unacknowledgedAlerts = alerts.filter(a => !a.acknowledged);
+        const hasCriticalAlerts = unacknowledgedAlerts.some(a => a.isCritical);
+        // Check for warning alerts - either isCritical is false OR title contains "Warning" (case insensitive)
+        const hasWarningAlerts = unacknowledgedAlerts.some(a => {
+            const titleLower = (a.title || "").toLowerCase();
+            return (!a.isCritical && (titleLower.includes("warning") || titleLower.includes("alert")));
+        });
+        
+        console.log("🔍 Status check - Alerts:", {
+            total: alerts.length,
+            unacknowledged: unacknowledgedAlerts.length,
+            critical: hasCriticalAlerts,
+            warning: hasWarningAlerts,
+            alertTitles: unacknowledgedAlerts.map(a => ({ title: a.title, isCritical: a.isCritical, acknowledged: a.acknowledged }))
+        });
+        
+        if (hasCriticalAlerts) {
+            console.log("✅ Status: CRITICAL (from alerts)");
+            return "critical";
+        }
+        if (hasWarningAlerts) {
+            console.log("✅ Status: WARNING (from alerts)");
+            return "warning";
+        }
+        
+        // If no alerts, check vitals against thresholds
+        if (vitals && thresholds.length > 0) {
+            const hrCritical = getThresholdValue(thresholds, 'heart_rate', 'critical');
+            const hrWarning = getThresholdValue(thresholds, 'heart_rate', 'warning');
+            const spo2Critical = getThresholdValue(thresholds, 'spo2', 'critical');
+            const spo2Warning = getThresholdValue(thresholds, 'spo2', 'warning');
+            
+            // Check for critical conditions
+            const isCritical = (hrCritical && vitals.heartRate !== null && vitals.heartRate !== undefined && 
+                               ((hrCritical.min_value !== null && vitals.heartRate < hrCritical.min_value) || 
+                                (hrCritical.max_value !== null && vitals.heartRate > hrCritical.max_value))) ||
+                               (spo2Critical && vitals.spo2 !== null && vitals.spo2 !== undefined &&
+                               ((spo2Critical.min_value !== null && vitals.spo2 < spo2Critical.min_value) || 
+                                (spo2Critical.max_value !== null && vitals.spo2 > spo2Critical.max_value)));
+            
+            if (isCritical) {
+                return "critical";
+            }
+            
+            // Check for warning conditions (only if not critical)
+            const isWarning = (hrWarning && vitals.heartRate !== null && vitals.heartRate !== undefined &&
+                              ((hrWarning.min_value !== null && vitals.heartRate < hrWarning.min_value) || 
+                               (hrWarning.max_value !== null && vitals.heartRate > hrWarning.max_value))) ||
+                              (spo2Warning && vitals.spo2 !== null && vitals.spo2 !== undefined &&
+                              ((spo2Warning.min_value !== null && vitals.spo2 < spo2Warning.min_value) || 
+                               (spo2Warning.max_value !== null && vitals.spo2 > spo2Warning.max_value)));
+            
+            if (isWarning) {
+                console.log("✅ Status: WARNING (from vitals/thresholds)");
+                return "warning";
+            }
+        }
+        
+        console.log("✅ Status: STABLE");
+        return "stable";
+    };
+    
+    // Determine status color based on alerts (for UI display)
+    const hasCriticalAlerts = alerts.some(a => a.isCritical && !a.acknowledged);
+    const hasWarningAlerts = alerts.some(a => !a.isCritical && !a.acknowledged && (a.title.includes("Warning") || a.title.includes("warning")));
+    
+    // Get current patient status
+    const patientStatus = determinePatientStatus();
+    
+    // Notify parent component of status change whenever status might change
+    useEffect(() => {
+        if (onStatusChange) {
+            const currentStatus = determinePatientStatus();
+            console.log("📊 PatientDashboard - Status determined:", currentStatus, {
+                alertsCount: alerts.length,
+                criticalAlerts: alerts.filter(a => a.isCritical && !a.acknowledged).length,
+                warningAlerts: alerts.filter(a => !a.isCritical && !a.acknowledged && (a.title.includes("Warning") || a.title.includes("warning"))).length,
+                hasVitals: !!vitals,
+                thresholdsCount: thresholds.length
+            });
+            onStatusChange(currentStatus);
+        }
+    }, [alerts, vitals, thresholds, onStatusChange]);
     
     const content = {
         statusBadge: hasCriticalAlerts ? "Attention Needed" : (hasWarningAlerts ? "Warning" : currentUser.status),
@@ -1000,80 +1086,11 @@ export default function PatientDashboard({ patientId, isStaffView }) {
                         </div>
                     </section>
 
-                    {/* 5. Emergency Button */}
-                    <button 
-                        onClick={() => setEmergencyConfirmOpen(true)}
-                        className="w-full py-4 rounded-xl font-bold shadow-lg transition-all duration-150 transform active:scale-95 hover:opacity-90" 
-                        style={{
-                            backgroundColor: palette.danger,
-                            color: 'white',
-                            boxShadow: `0 4px 16px ${palette.danger}40`
-                        }}
-                    >
-                        🚑 Emergency Help
-                    </button>
-                    <p className="text-[10px] text-center px-4" style={{ color: palette.textSecondary }}>
-                        Press if you need immediate medical assistance.
-                    </p>
                 </div>
             </div>
                 </main>
             </div>
 
-            {/* Emergency Confirmation Modal */}
-            {emergencyConfirmOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setEmergencyConfirmOpen(false)}>
-                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-black/5 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-start gap-4 mb-6">
-                            <div className="rounded-full p-2 bg-red-100 text-red-600">
-                                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="text-lg font-bold text-slate-900">Emergency Help Request</h3>
-                                <p className="mt-1 text-sm text-slate-500 leading-relaxed">
-                                    Are you sure you need emergency medical assistance?
-                                </p>
-                                <p className="mt-2 text-xs text-slate-400">
-                                    This will immediately notify the staff team. A medical professional will come to your room as soon as possible.
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                onClick={() => setEmergencyConfirmOpen(false)}
-                                className="px-4 py-2 text-sm font-semibold rounded-lg border transition-all duration-150 hover:opacity-80"
-                                style={{
-                                    borderColor: palette.border + '40',
-                                    color: palette.navy,
-                                    backgroundColor: palette.surface
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={async () => {
-                                    try {
-                                        await createEmergencyAlert(patientId);
-                                        setEmergencyConfirmOpen(false);
-                                        alert("Emergency alert sent! Help is on the way.");
-                                    } catch (error) {
-                                        console.error("Error creating emergency alert:", error);
-                                        alert("Failed to send emergency alert. Please try again or use the call button in your room.");
-                                    }
-                                }}
-                                className="px-4 py-2 text-sm font-semibold rounded-lg text-white transition-all duration-150 hover:opacity-90"
-                                style={{
-                                    backgroundColor: palette.danger
-                                }}
-                            >
-                                Yes, I Need Help
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

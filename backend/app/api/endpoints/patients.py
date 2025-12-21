@@ -25,9 +25,13 @@ class PatientCreate(BaseModel):
 
 
 @router.get("/")
-async def list_patients() -> List[Dict[str, Any]]:
+async def list_patients(
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> List[Dict[str, Any]]:
     """
-    List all patients.
+    List patients.
+    - For staff: Returns only patients assigned to them via staff_patients table
+    - For patients: Returns only their own record
     
     Returns:
         List of patient records
@@ -35,12 +39,63 @@ async def list_patients() -> List[Dict[str, Any]]:
     try:
         engine = get_engine()
         with engine.connect() as conn:
-            result = conn.execute(
-                text("SELECT patient_id, first_name, last_name, dob, gender, room_id, created_at FROM patients ORDER BY patient_id")
-            )
+            # If patient, return only their own record
+            if current_user.get("role") == "patient":
+                patient_id = current_user.get("id") or current_user.get("sub")
+                result = conn.execute(
+                    text("""
+                        SELECT patient_id, first_name, last_name, dob, gender, room_id, created_at 
+                        FROM patients 
+                        WHERE patient_id = :pid
+                        ORDER BY patient_id
+                    """),
+                    {"pid": patient_id}
+                )
+            # If staff, return only patients assigned to them
+            elif current_user.get("role") in ["admin", "doctor", "nurse", "viewer"]:
+                # Get staff_id - handle staff_id = 0 (admin) correctly
+                # Check each key explicitly since 0 is falsy but valid
+                staff_id = None
+                if "id" in current_user:
+                    staff_id = current_user["id"]
+                elif "staff_id" in current_user:
+                    staff_id = current_user["staff_id"]
+                elif "sub" in current_user:
+                    # sub might be a string, convert to int
+                    try:
+                        staff_id = int(current_user["sub"])
+                    except (ValueError, TypeError):
+                        staff_id = None
+                
+                if staff_id is None:
+                    raise HTTPException(status_code=400, detail="Staff ID not found in token")
+                
+                # Debug logging
+                print(f"DEBUG list_patients: role={current_user.get('role')}, staff_id={staff_id}, current_user={current_user}")
+                
+                result = conn.execute(
+                    text("""
+                        SELECT DISTINCT p.patient_id, p.first_name, p.last_name, p.dob, p.gender, p.room_id, p.created_at
+                        FROM patients p
+                        INNER JOIN staff_patients sp ON p.patient_id = sp.patient_id
+                        WHERE sp.staff_id = :staff_id
+                        ORDER BY p.patient_id
+                    """),
+                    {"staff_id": int(staff_id)}
+                )
+            else:
+                # Unknown role, return empty list
+                return []
+            
             patients = [dict(row._mapping) for row in result]
+            print(f"DEBUG list_patients: returning {len(patients)} patients")
             return patients
+    except HTTPException:
+        raise
     except Exception as e:
+        import traceback
+        print(f"ERROR in list_patients: {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 

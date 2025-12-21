@@ -169,7 +169,25 @@ async def get_all_unacknowledged_alerts(
                     start_time_filter = "AND a.created_at >= :start_time"
                 params["start_time"] = start_time_str
             
+            # Get staff_id from current_user - handle staff_id = 0 (admin) correctly
+            # Check each key explicitly since 0 is falsy but valid
+            staff_id = None
+            if "id" in current_user:
+                staff_id = current_user["id"]
+            elif "staff_id" in current_user:
+                staff_id = current_user["staff_id"]
+            elif "sub" in current_user:
+                # sub might be a string, convert to int
+                try:
+                    staff_id = int(current_user["sub"])
+                except (ValueError, TypeError):
+                    staff_id = None
+            
+            if staff_id is None:
+                raise HTTPException(status_code=400, detail="Staff ID not found in token")
+            
             # Get all alerts (acknowledged and unacknowledged) since simulation start
+            # Filter to only show alerts for patients assigned to this staff member
             result = conn.execute(
                 text(f"""
                     SELECT a.alert_id, a.patient_id, a.alert_type, a.threshold, a.message, 
@@ -177,12 +195,13 @@ async def get_all_unacknowledged_alerts(
                            p.first_name, p.last_name, p.room_id
                     FROM alerts a
                     JOIN patients p ON a.patient_id = p.patient_id
-                    WHERE 1=1 {start_time_filter}
+                    INNER JOIN staff_patients sp ON a.patient_id = sp.patient_id
+                    WHERE sp.staff_id = :staff_id {start_time_filter}
                     ORDER BY 
                         CASE WHEN a.acknowledged_at IS NULL THEN 0 ELSE 1 END,
                         a.created_at DESC
                 """),
-                params
+                {**params, "staff_id": int(staff_id)}
             )
             alerts = []
             for row in result:

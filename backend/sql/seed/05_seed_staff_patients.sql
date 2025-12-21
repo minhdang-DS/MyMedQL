@@ -1,7 +1,10 @@
 -- ============================================================================
 -- Seed Staff-Patient Assignments
 -- ============================================================================
--- Description: Assigns 6 patients to each staff member for monitoring.
+-- Description: Assigns patients to staff members for monitoring.
+--              IMPORTANT:
+--              - Admin (staff_id = 0) is assigned to ALL patients
+--              - Doctors and nurses can be assigned to multiple patients (overlapping with admin)
 --              This creates a many-to-many relationship where:
 --              - One staff member can monitor many patients
 --              - One patient can be monitored by many staff members
@@ -17,45 +20,56 @@ USE `mymedql`;
 -- ----------------------------------------------------------------------------
 -- Staff-Patient Assignments
 -- ----------------------------------------------------------------------------
--- Assign 6 patients to each staff member
--- Using a round-robin approach to distribute patients evenly
+-- IMPORTANT: 
+-- - Admin (staff_id = 0) is assigned to ALL patients
+-- - Doctors and nurses can be assigned to multiple patients (overlapping with admin)
 
--- Get staff IDs
-SET @admin_id = (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1);
-SET @doctor_id = (SELECT staff_id FROM staff WHERE role = 'doctor' LIMIT 1);
-SET @nurse_id = (SELECT staff_id FROM staff WHERE role = 'nurse' LIMIT 1);
+-- Get staff IDs (admin must be 0)
+SET @admin_id = 0;  -- Admin is always staff_id = 0
+SET @doctor_id = (SELECT staff_id FROM staff WHERE role = 'doctor' AND staff_id != 0 LIMIT 1);
+SET @nurse_id = (SELECT staff_id FROM staff WHERE role = 'nurse' AND staff_id != 0 LIMIT 1);
 
--- Assign 6 patients to Admin (patients 1-6)
+-- Assign ALL patients to Admin (staff_id = 0)
+-- This ensures admin can see all patients
 INSERT INTO staff_patients (staff_id, patient_id, assigned_by, notes)
 SELECT 
     @admin_id,
-    patient_id,
+    p.patient_id,
     @admin_id,
-    CONCAT('Assigned to admin for monitoring - Patient ', patient_id, ' - Administrative oversight')
-FROM patients
-WHERE patient_id BETWEEN 1 AND 6
+    CONCAT('Assigned to admin for monitoring - Patient ', p.patient_id, ' - Administrative oversight')
+FROM patients p
+INNER JOIN admissions a ON p.patient_id = a.patient_id
+WHERE a.status IN ('verified', 'admitted')
 ON DUPLICATE KEY UPDATE notes = VALUES(notes);
 
--- Assign 6 patients to Doctor (patients 3-8, overlaps with admin on patients 3-6)
+-- Assign patients to Doctor (multiple patients, overlaps with admin)
+-- Doctor gets 6 patients (or all if less than 6)
 INSERT INTO staff_patients (staff_id, patient_id, assigned_by, notes)
 SELECT 
     @doctor_id,
-    patient_id,
-    @doctor_id,
-    CONCAT('Assigned to doctor for medical supervision - Patient ', patient_id, ' - Clinical care')
-FROM patients
-WHERE patient_id BETWEEN 3 AND 8
+    p.patient_id,
+    @admin_id,  -- Assigned by admin
+    CONCAT('Assigned to doctor for medical supervision - Patient ', p.patient_id, ' - Clinical care')
+FROM patients p
+INNER JOIN admissions a ON p.patient_id = a.patient_id
+WHERE a.status IN ('verified', 'admitted')
+ORDER BY p.patient_id
+LIMIT 6
 ON DUPLICATE KEY UPDATE notes = VALUES(notes);
 
--- Assign 6 patients to Nurse (patients 1-3 and 5-7, overlaps with both admin and doctor)
+-- Assign patients to Nurse (multiple patients, overlaps with admin and doctor)
+-- Nurse gets 6 patients (or all if less than 6), with some overlap
 INSERT INTO staff_patients (staff_id, patient_id, assigned_by, notes)
 SELECT 
     @nurse_id,
-    patient_id,
-    @nurse_id,
-    CONCAT('Assigned to nurse for direct care - Patient ', patient_id, ' - Nursing care')
-FROM patients
-WHERE patient_id IN (1, 2, 3, 5, 6, 7)
+    p.patient_id,
+    @admin_id,  -- Assigned by admin
+    CONCAT('Assigned to nurse for direct care - Patient ', p.patient_id, ' - Nursing care')
+FROM patients p
+INNER JOIN admissions a ON p.patient_id = a.patient_id
+WHERE a.status IN ('verified', 'admitted')
+ORDER BY p.patient_id
+LIMIT 6
 ON DUPLICATE KEY UPDATE notes = VALUES(notes);
 
 -- Note: The ON DUPLICATE KEY UPDATE ensures this script is idempotent

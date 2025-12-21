@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import ProtectedRoute from "../../../components/ProtectedRoute";
 import { getPatients, getPatientHistory, getThresholds, updateThreshold, deletePatient, getAllUnacknowledgedAlerts, acknowledgeAlert } from "../../services/api";
 import { useWebSocket } from "../../hooks/useWebSocket";
+import { getCurrentUser } from "../../services/auth";
 
 const palette = {
   // Primary colors: lively blues, teal, vibrant accents (matching landing page)
@@ -75,11 +76,24 @@ export default function StaffPage() {
   const [warningPatientsCount, setWarningPatientsCount] = useState(0); // Count of patients in warning state (updated every 1 minute)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false); // Modal state for delete confirmation
   const [patientToDelete, setPatientToDelete] = useState(null); // Patient to be deleted
+  const [currentStaff, setCurrentStaff] = useState({ name: "", id: "", role: "" }); // Current logged-in staff info
 
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // "all", "stable", "warning", "critical"
   const [sortBy, setSortBy] = useState("id"); // "id", "name"
+
+  // Get current staff information
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (user) {
+      setCurrentStaff({
+        name: user.name || "Unknown",
+        id: user.sub || user.id || "N/A",
+        role: user.role || "staff"
+      });
+    }
+  }, []);
 
   // Fetch thresholds
   useEffect(() => {
@@ -421,7 +435,7 @@ export default function StaffPage() {
       }
       
       // Update local state - mark as acknowledged (but keep in list)
-      setAcknowledgedAlerts(prev => new Set([...prev, alertId]));
+    setAcknowledgedAlerts(prev => new Set([...prev, alertId]));
       
       // Don't remove from alerts list - it will be updated on next fetch and shown greyed out at bottom
     } catch (error) {
@@ -525,7 +539,7 @@ export default function StaffPage() {
         return a.name.localeCompare(b.name);
       } else {
         // Sort by ID (default)
-        return Number(a.patient_id) - Number(b.patient_id);
+      return Number(a.patient_id) - Number(b.patient_id);
       }
     });
 
@@ -682,12 +696,27 @@ export default function StaffPage() {
                   }}>
                     Patient Monitor
                   </h1>
-                  <div className="flex items-center gap-2 text-xs font-medium" style={{ color: palette.brand }}>
+                  <div className="flex items-center gap-4 text-xs font-medium">
+                    <div className="flex items-center gap-2" style={{ color: palette.brand }}>
                     <span className="relative flex h-2 w-2">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ backgroundColor: palette.success }}></span>
                       <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: palette.success }}></span>
                     </span>
                     System Operational
+                  </div>
+                    {currentStaff.name && (
+                      <div className="flex items-center gap-2 border-l pl-4" style={{ borderColor: palette.brand + '40', color: palette.textSecondary }}>
+                        <span className="font-semibold" style={{ color: palette.navyDark }}>{currentStaff.name}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded" style={{ backgroundColor: palette.muted, color: palette.textSecondary }}>
+                          ID: {currentStaff.id}
+                        </span>
+                        {currentStaff.role && (
+                          <span className="text-[10px] px-2 py-0.5 rounded uppercase" style={{ backgroundColor: palette.brand + '20', color: palette.brand }}>
+                            {currentStaff.role}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -886,7 +915,7 @@ export default function StaffPage() {
                       const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
                       return bTime - aTime; // Newest first (descending)
                     })
-                      .map((alert, idx) => {
+                    .map((alert, idx) => {
                     const isAcknowledged = acknowledgedAlerts.has(alert.id) || (alert.acknowledged_at !== null && alert.acknowledged_at !== undefined);
 
                       return (
@@ -1009,18 +1038,18 @@ export default function StaffPage() {
                           </div>
                           
                           <div className="flex gap-1.5">
-                            {warning && (
+                          {warning && (
                               <div className="flex-1 flex items-center justify-between rounded-lg border p-2 transition-all duration-150 cursor-pointer group" style={{ 
-                                borderColor: palette.warning + '40',
-                                backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 215, 0, 0.1) 100%)'
-                              }} onClick={() => openEditModal(warning)} onMouseEnter={(e) => { 
-                                e.currentTarget.style.borderColor = palette.warning + '60'; 
+                              borderColor: palette.warning + '40',
+                              backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 215, 0, 0.1) 100%)'
+                            }} onClick={() => openEditModal(warning)} onMouseEnter={(e) => { 
+                              e.currentTarget.style.borderColor = palette.warning + '60'; 
                                 e.currentTarget.style.boxShadow = `0 2px 8px ${palette.warning}25`;
-                              }} onMouseLeave={(e) => { 
-                                e.currentTarget.style.borderColor = palette.warning + '40'; 
+                            }} onMouseLeave={(e) => { 
+                              e.currentTarget.style.borderColor = palette.warning + '40'; 
                                 e.currentTarget.style.boxShadow = 'none';
-                              }}>
+                            }}>
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                   <span className="text-[10px] text-white px-1.5 py-0.5 rounded font-bold whitespace-nowrap" style={{
                                     backgroundColor: palette.warning
@@ -1033,30 +1062,30 @@ export default function StaffPage() {
                                   </div>
                                 </div>
                                 <button className="rounded p-1 transition-all duration-150 flex-shrink-0" style={{ 
-                                  backgroundColor: palette.warning + '20',
-                                  color: palette.warning
-                                }} onMouseEnter={(e) => {
-                                  e.currentTarget.style.opacity = '0.8';
-                                }} onMouseLeave={(e) => {
-                                  e.currentTarget.style.opacity = '1';
-                                }}>
+                                backgroundColor: palette.warning + '20',
+                                color: palette.warning
+                              }} onMouseEnter={(e) => {
+                                e.currentTarget.style.opacity = '0.8';
+                              }} onMouseLeave={(e) => {
+                                e.currentTarget.style.opacity = '1';
+                              }}>
                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                </button>
-                              </div>
-                            )}
-                            
+                              </button>
+                            </div>
+                          )}
+                          
                             {critical && (
                               <div className="flex-1 flex items-center justify-between rounded-lg border p-2 transition-all duration-150 cursor-pointer group" style={{ 
-                                borderColor: palette.danger + '40',
-                                backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 82, 82, 0.1) 100%)'
+                              borderColor: palette.danger + '40',
+                              backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 82, 82, 0.1) 100%)'
                               }} onClick={() => openEditModal(critical)} onMouseEnter={(e) => { 
-                                e.currentTarget.style.borderColor = palette.danger + '60'; 
+                              e.currentTarget.style.borderColor = palette.danger + '60'; 
                                 e.currentTarget.style.boxShadow = `0 2px 8px ${palette.danger}25`;
-                              }} onMouseLeave={(e) => { 
-                                e.currentTarget.style.borderColor = palette.danger + '40'; 
+                            }} onMouseLeave={(e) => { 
+                              e.currentTarget.style.borderColor = palette.danger + '40'; 
                                 e.currentTarget.style.boxShadow = 'none';
-                              }}>
+                            }}>
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                   <span className="text-[10px] text-white px-1.5 py-0.5 rounded font-bold whitespace-nowrap" style={{
                                     backgroundColor: palette.danger
@@ -1069,17 +1098,17 @@ export default function StaffPage() {
                                   </div>
                                 </div>
                                 <button className="rounded p-1 transition-all duration-150 flex-shrink-0" style={{ 
-                                  backgroundColor: palette.danger + '20',
-                                  color: palette.danger
-                                }} onMouseEnter={(e) => {
-                                  e.currentTarget.style.opacity = '0.8';
-                                }} onMouseLeave={(e) => {
-                                  e.currentTarget.style.opacity = '1';
-                                }}>
+                                backgroundColor: palette.danger + '20',
+                                color: palette.danger
+                              }} onMouseEnter={(e) => {
+                                e.currentTarget.style.opacity = '0.8';
+                              }} onMouseLeave={(e) => {
+                                e.currentTarget.style.opacity = '1';
+                              }}>
                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                </button>
-                              </div>
-                            )}
+                              </button>
+                            </div>
+                          )}
                           </div>
                         </div>
                       );
@@ -1140,7 +1169,7 @@ export default function StaffPage() {
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
                       className="rounded-lg border px-4 py-2.5 pr-8 text-sm font-semibold transition-all duration-150 appearance-none cursor-pointer"
-                      style={{
+                    style={{
                         borderColor: palette.brand + '40',
                         backgroundColor: palette.surface,
                         color: palette.brand,
@@ -1168,8 +1197,8 @@ export default function StaffPage() {
                         backgroundColor: palette.surface,
                         color: palette.brand,
                         boxShadow: `0 2px 8px ${palette.brand}15`
-                      }}
-                    >
+                    }}
+                  >
                       <option value="id">Sort by ID</option>
                       <option value="name">Sort by Name</option>
                     </select>
@@ -1374,8 +1403,8 @@ export default function StaffPage() {
                         const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
                         return bTime - aTime; // Newest first (descending)
                       })
-                        .map((alert) => {
-                          const isCritical = alert.severity === 'Critical';
+                      .map((alert) => {
+                        const isCritical = alert.severity === 'Critical';
                           const isAcknowledged = acknowledgedAlerts.has(alert.id) || (alert.acknowledged_at !== null && alert.acknowledged_at !== undefined);
 
                       return (

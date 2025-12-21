@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """
-Generate continuous vital signs data for all patients with phased demo:
+Generate continuous vital signs data for all patients with phased demo.
+Ensures each staff member sees the demo phases for their assigned patients:
 - Phase 1 (0-5s): All patients stable
 - Phase 2 (5-10s): Some patients transition to warning
 - Phase 3 (10s-10min): Some patients critical, some warning, rest stable
+
+For each staff member, their assigned patients are distributed across phases
+so every staff sees the demo progression.
 """
 import sys
 import time
@@ -12,6 +16,7 @@ from pathlib import Path
 from datetime import datetime
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from collections import defaultdict
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -172,6 +177,28 @@ class DemoPatientState:
         }
 
 
+def get_staff_patient_assignments(engine: Engine) -> dict:
+    """
+    Get patient assignments for each staff member.
+    Returns: {staff_id: [patient_id1, patient_id2, ...]}
+    """
+    with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT DISTINCT sp.staff_id, p.patient_id
+            FROM staff_patients sp
+            INNER JOIN patients p ON sp.patient_id = p.patient_id
+            INNER JOIN admissions a ON p.patient_id = a.patient_id
+            WHERE a.status IN ('verified', 'admitted')
+            ORDER BY sp.staff_id, p.patient_id
+        """))
+        
+        staff_patients = defaultdict(list)
+        for row in result:
+            staff_patients[row.staff_id].append(row.patient_id)
+        
+        return dict(staff_patients)
+
+
 def get_all_patient_ids(engine: Engine) -> list:
     """Get all patient IDs from the database that have active admissions."""
     with engine.connect() as conn:
@@ -231,30 +258,69 @@ def main():
         recorded_time = time_result.fetchone()[0]
         print(f"   ✅ Simulation start time recorded: {recorded_time}\n")
     
-    patient_ids = get_all_patient_ids(engine)
+    # Get staff-patient assignments
+    staff_patients_map = get_staff_patient_assignments(engine)
+    
+    if not staff_patients_map:
+        print("❌ No staff-patient assignments found. Please create staff-patient assignments first.")
+        return
+    
+    # Get all unique patient IDs
+    all_patient_ids = set()
+    for patient_list in staff_patients_map.values():
+        all_patient_ids.update(patient_list)
+    patient_ids = sorted(list(all_patient_ids))
     
     if not patient_ids:
         print("❌ No patients found in database. Please create patients first.")
         return
     
-    print(f"📋 Found {len(patient_ids)} patient(s): {patient_ids}\n")
+    print(f"📋 Found {len(staff_patients_map)} staff member(s) with patient assignments")
+    for staff_id, assigned_patients in staff_patients_map.items():
+        print(f"   Staff {staff_id}: {len(assigned_patients)} patient(s) - {assigned_patients}")
+    print(f"\n📋 Total unique patients: {len(patient_ids)} - {patient_ids}\n")
     
     # Create DemoPatientState for each patient (all start stable)
     patients = {pid: DemoPatientState(pid, 'stable') for pid in patient_ids}
     
-    # Determine which patients will transition to warning and critical
-    # Use about 30% for warning, 20% for critical, rest stay stable
-    num_warning = max(1, int(len(patient_ids) * 0.3))
-    num_critical = max(1, int(len(patient_ids) * 0.2))
+    # For each staff member, distribute their patients across phases
+    # This ensures every staff sees the demo progression
+    warning_patients = set()
+    critical_patients = set()
+    stable_patients = set()
     
-    # Randomly select patients for each state
-    shuffled_ids = patient_ids.copy()
-    random.shuffle(shuffled_ids)
-    warning_patients = shuffled_ids[:num_warning]
-    critical_patients = shuffled_ids[num_warning:num_warning + num_critical]
-    stable_patients = shuffled_ids[num_warning + num_critical:]
+    for staff_id, assigned_patients in staff_patients_map.items():
+        if not assigned_patients:
+            continue
+        
+        # For each staff, distribute their patients: 30% warning, 20% critical, 50% stable
+        num_warning = max(1, int(len(assigned_patients) * 0.3))
+        num_critical = max(1, int(len(assigned_patients) * 0.2))
+        
+        # Shuffle this staff's patients
+        shuffled = assigned_patients.copy()
+        random.shuffle(shuffled)
+        
+        # Assign phases for this staff's patients
+        staff_warning = shuffled[:num_warning]
+        staff_critical = shuffled[num_warning:num_warning + num_critical]
+        staff_stable = shuffled[num_warning + num_critical:]
+        
+        warning_patients.update(staff_warning)
+        critical_patients.update(staff_critical)
+        stable_patients.update(staff_stable)
+        
+        print(f"📊 Staff {staff_id} state distribution:")
+        print(f"   Stable: {len(staff_stable)} patient(s) - {staff_stable}")
+        print(f"   Warning: {len(staff_warning)} patient(s) - {staff_warning}")
+        print(f"   Critical: {len(staff_critical)} patient(s) - {staff_critical}")
     
-    print(f"📊 State distribution:")
+    # Convert to lists for easier handling
+    warning_patients = list(warning_patients)
+    critical_patients = list(critical_patients)
+    stable_patients = list(stable_patients)
+    
+    print(f"\n📊 Overall state distribution:")
     print(f"   Stable: {len(stable_patients)} patient(s) - {stable_patients}")
     print(f"   Warning: {len(warning_patients)} patient(s) - {warning_patients}")
     print(f"   Critical: {len(critical_patients)} patient(s) - {critical_patients}\n")

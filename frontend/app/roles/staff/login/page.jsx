@@ -19,13 +19,9 @@ const palette = {
 
 export default function StaffLoginPage() {
   const router = useRouter();
-  const [isLogin, setIsLogin] = useState(true); // Toggle between login and signup
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    confirmPassword: "",
-    name: "",
-    employeeId: "",
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -52,20 +48,6 @@ export default function StaffLoginPage() {
 
     if (!formData.password) {
       newErrors.password = "Password is required";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
-    }
-
-    if (!isLogin) {
-      if (!formData.name) {
-        newErrors.name = "Full name is required";
-      }
-      if (!formData.employeeId) {
-        newErrors.employeeId = "Employee ID is required";
-      }
-      if (formData.password !== formData.confirmPassword) {
-        newErrors.confirmPassword = "Passwords do not match";
-      }
     }
 
     setErrors(newErrors);
@@ -84,14 +66,9 @@ export default function StaffLoginPage() {
     setErrors({}); // Clear previous errors
 
     try {
-      if (isLogin) {
-        await login(formData.email, formData.password);
-        // Redirect to staff dashboard after successful login
-        router.push("/roles/staff");
-      } else {
-        // Signup not implemented in backend yet for this demo
-        setErrors({ form: "Sign up is not currently supported. Please log in." });
-      }
+      await login(formData.email, formData.password);
+      // Redirect to staff dashboard after successful login
+      router.push("/roles/staff");
     } catch (err) {
       setErrors({ form: err.message || "Authentication failed" });
     } finally {
@@ -133,7 +110,7 @@ export default function StaffLoginPage() {
           Back to Role Selection
         </Link>
 
-        {/* Login/Signup Card */}
+        {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-xl border p-8" style={{ borderColor: palette.border }}>
           {/* Header */}
           <div className="text-center mb-8">
@@ -144,45 +121,11 @@ export default function StaffLoginPage() {
               </svg>
             </div>
             <h1 className="text-3xl font-bold mb-2" style={{ color: palette.textMain }}>
-              {isLogin ? "Staff Login" : "Staff Sign Up"}
+              Staff Login
             </h1>
             <p className="text-sm" style={{ color: palette.textLight }}>
-              {isLogin
-                ? "Access your medical staff dashboard"
-                : "Create your medical staff account"}
+              Access your medical staff dashboard
             </p>
-          </div>
-
-          {/* Toggle between Login and Signup */}
-          <div className="flex items-center gap-2 mb-6 p-1 rounded-lg bg-gray-100">
-            <button
-              onClick={() => {
-                setIsLogin(true);
-                setErrors({});
-                setFormData({ email: "", password: "", confirmPassword: "", name: "", employeeId: "" });
-              }}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${isLogin
-                ? "bg-white text-blue-600 shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
-                }`}
-              style={isLogin ? { color: palette.primary } : {}}
-            >
-              Login
-            </button>
-            <button
-              onClick={() => {
-                setIsLogin(false);
-                setErrors({});
-                setFormData({ email: "", password: "", confirmPassword: "", name: "", employeeId: "" });
-              }}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${!isLogin
-                ? "bg-white text-blue-600 shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
-                }`}
-              style={!isLogin ? { color: palette.primary } : {}}
-            >
-              Sign Up
-            </button>
           </div>
 
           {/* Form */}
@@ -190,57 +133,6 @@ export default function StaffLoginPage() {
             {errors.form && (
               <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm">
                 {errors.form}
-              </div>
-            )}
-            {/* Name field (only for signup) */}
-            {!isLogin && (
-              <div>
-                <label htmlFor="name" className="block text-sm font-semibold mb-2" style={{ color: palette.textMain }}>
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 ${errors.name ? "border-red-300 focus:ring-red-200" : "focus:ring-blue-200"
-                    }`}
-                  style={{
-                    borderColor: errors.name ? palette.error : palette.border,
-                    fontFamily: '"Inter", sans-serif'
-                  }}
-                  placeholder="Dr. John Smith"
-                />
-                {errors.name && (
-                  <p className="mt-1 text-xs" style={{ color: palette.error }}>{errors.name}</p>
-                )}
-              </div>
-            )}
-
-            {/* Employee ID field (only for signup) */}
-            {!isLogin && (
-              <div>
-                <label htmlFor="employeeId" className="block text-sm font-semibold mb-2" style={{ color: palette.textMain }}>
-                  Employee ID
-                </label>
-                <input
-                  type="text"
-                  id="employeeId"
-                  name="employeeId"
-                  value={formData.employeeId}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 ${errors.employeeId ? "border-red-300 focus:ring-red-200" : "focus:ring-blue-200"
-                    }`}
-                  style={{
-                    borderColor: errors.employeeId ? palette.error : palette.border,
-                    fontFamily: '"Inter", sans-serif'
-                  }}
-                  placeholder="EMP-12345"
-                />
-                {errors.employeeId && (
-                  <p className="mt-1 text-xs" style={{ color: palette.error }}>{errors.employeeId}</p>
-                )}
               </div>
             )}
 
@@ -292,44 +184,16 @@ export default function StaffLoginPage() {
               )}
             </div>
 
-            {/* Confirm Password field (only for signup) */}
-            {!isLogin && (
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-semibold mb-2" style={{ color: palette.textMain }}>
-                  Confirm Password
-                </label>
-                <input
-                  type="password"
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 ${errors.confirmPassword ? "border-red-300 focus:ring-red-200" : "focus:ring-blue-200"
-                    }`}
-                  style={{
-                    borderColor: errors.confirmPassword ? palette.error : palette.border,
-                    fontFamily: '"Inter", sans-serif'
-                  }}
-                  placeholder="••••••••"
-                />
-                {errors.confirmPassword && (
-                  <p className="mt-1 text-xs" style={{ color: palette.error }}>{errors.confirmPassword}</p>
-                )}
-              </div>
-            )}
-
-            {/* Forgot Password link (only for login) */}
-            {isLogin && (
-              <div className="flex justify-end">
-                <Link
-                  href="#"
-                  className="text-sm font-medium transition-colors hover:text-blue-600"
-                  style={{ color: palette.primary }}
-                >
-                  Forgot password?
-                </Link>
-              </div>
-            )}
+            {/* Forgot Password link */}
+            <div className="flex justify-end">
+              <Link
+                href="#"
+                className="text-sm font-medium transition-colors hover:text-blue-600"
+                style={{ color: palette.primary }}
+              >
+                Forgot password?
+              </Link>
+            </div>
 
             {/* Submit Button */}
             <button
@@ -347,10 +211,10 @@ export default function StaffLoginPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  {isLogin ? "Logging in..." : "Creating account..."}
+                  Logging in...
                 </span>
               ) : (
-                isLogin ? "Login" : "Create Account"
+                "Login"
               )}
             </button>
           </form>
@@ -358,7 +222,7 @@ export default function StaffLoginPage() {
           {/* Footer */}
           <div className="mt-6 pt-6 border-t text-center" style={{ borderColor: palette.border }}>
             <p className="text-xs" style={{ color: palette.textLight }}>
-              By {isLogin ? "logging in" : "signing up"}, you agree to our{" "}
+              By logging in, you agree to our{" "}
               <Link href="#" className="font-medium hover:underline" style={{ color: palette.primary }}>
                 Terms of Service
               </Link>{" "}

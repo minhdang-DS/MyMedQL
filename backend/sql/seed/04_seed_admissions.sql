@@ -15,9 +15,9 @@ USE `mymedql`;
 INSERT INTO admissions (patient_id, admitted_at, status, admitted_by, discharge_notes) 
 SELECT 
     p.patient_id,
-    NOW() - INTERVAL (8 - p.patient_id) DAY,
+    NOW() - INTERVAL (p.patient_id % 8 + 1) DAY,
     'verified',
-    (SELECT staff_id FROM staff WHERE role = 'doctor' LIMIT 1),
+    (SELECT staff_id FROM staff WHERE role = 'doctor' AND staff_id != 0 LIMIT 1),
     CASE 
         WHEN p.patient_id = 1 THEN 'Patient admitted for routine monitoring'
         WHEN p.patient_id = 2 THEN 'Post-surgical observation'
@@ -43,9 +43,9 @@ WHERE NOT EXISTS (
 -- Assign devices to patients with active admissions
 -- Fill all columns: device_id, patient_id, assigned_from, assigned_by, notes
 
-SET @nurse_id = (SELECT staff_id FROM staff WHERE role = 'nurse' LIMIT 1);
-SET @doctor_id = (SELECT staff_id FROM staff WHERE role = 'doctor' LIMIT 1);
-SET @admin_id = (SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1);
+SET @nurse_id = (SELECT staff_id FROM staff WHERE role = 'nurse' AND staff_id != 0 LIMIT 1);
+SET @doctor_id = (SELECT staff_id FROM staff WHERE role = 'doctor' AND staff_id != 0 LIMIT 1);
+SET @admin_id = 0;  -- Admin is always staff_id = 0
 
 INSERT INTO device_assignments (device_id, patient_id, assigned_from, assigned_by, notes) 
 VALUES 

@@ -2,15 +2,15 @@
 export const themes = {
     stable: {
         bg: "#F8FAFC", // Slate-50 - Very soft/clean (default)
-        card: "#FFFFFF",
-        textMain: "#1E293B", // Slate-800
-        textMuted: "#64748B", // Slate-500
-        primary: "#0284C7", // Sky-600 (Calm Blue)
-        success: "#10B981", // Emerald-500
-        warning: "#F59E0B", // Amber-500
-        critical: "#E11D48", // Rose-600 (Softer than pure red)
-        criticalBg: "#FFF1F2", // Rose-50
-        monitorBg: "#0F172A", // Slate-900 (Dark but blue-tinted)
+    card: "#FFFFFF",
+    textMain: "#1E293B", // Slate-800
+    textMuted: "#64748B", // Slate-500
+    primary: "#0284C7", // Sky-600 (Calm Blue)
+    success: "#10B981", // Emerald-500
+    warning: "#F59E0B", // Amber-500
+    critical: "#E11D48", // Rose-600 (Softer than pure red)
+    criticalBg: "#FFF1F2", // Rose-50
+    monitorBg: "#0F172A", // Slate-900 (Dark but blue-tinted)
     },
     warning: {
         bg: "#FEF3C7", // Amber-100 - More visible yellow tinted background

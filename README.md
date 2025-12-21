@@ -1,8 +1,8 @@
-# MyMedQL
+
 
 <div align="center">
 
-**Real-Time Patient Vital Monitoring & Anomaly Detection System**
+**MyMedQL - Real-Time Patient Vital Monitoring & Anomaly Detection System**
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=next.js)](https://nextjs.org/)
@@ -102,22 +102,17 @@ For detailed setup instructions, see [QUICKSTART.md](./QUICKSTART.md).
 
 ## 🏗️ Architecture
 
-### System Components
+### System Overview
 
-```
-┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
-│   Frontend      │◄───────►│   Backend API   │◄───────►│   MySQL DB      │
-│   (Next.js)     │ WebSocket│   (FastAPI)     │  SQL    │   (8.x)         │
-│                 │         │                 │         │                 │
-│ • React UI      │         │ • REST API      │         │ • Tables        │
-│ • Real-time     │         │ • WebSocket     │         │ • Triggers      │
-│ • Visualizations│         │ • Auth          │         │ • Procedures    │
-└─────────────────┘         └─────────────────┘         └─────────────────┘
-         │                           │                           │
-         │                           │                           │
-         └───────────────────────────┴───────────────────────────┘
-                              Docker Compose
-```
+<div align="center">
+
+![System Architecture](./docs/architecture-diagram.png)
+
+*MyMedQL System Architecture - Data flow from simulator to dashboards*
+
+</div>
+
+
 
 ### Data Flow
 

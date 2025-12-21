@@ -78,7 +78,8 @@ export default function StaffPage() {
 
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState("");
-  const [showAlertsOnly, setShowAlertsOnly] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all"); // "all", "stable", "warning", "critical"
+  const [sortBy, setSortBy] = useState("id"); // "id", "name"
 
   // Fetch thresholds
   useEffect(() => {
@@ -102,8 +103,8 @@ export default function StaffPage() {
         
         // Convert database alerts to frontend format
         const formattedAlerts = dbAlerts.map(alert => {
-          // Extract time from created_at - use database time directly without timezone conversion
-          // Database stores time in UTC/server timezone, extract HH:MM:SS directly from ISO string
+          // Extract time from created_at - database stores time in GMT+7 (Vietnam timezone)
+          // Display time directly from database (already in GMT+7)
           let timeStr = '';
           if (alert.created_at) {
             const created_at_str = String(alert.created_at);
@@ -500,20 +501,32 @@ export default function StaffPage() {
   const warningAlertsCount = warningPatientsCount;
   const totalPatients = useMemo(() => patients.length, [patients]);
 
-  // Filter and Sort Patients - stable sort by patient_id
+  // Filter and Sort Patients
   const filteredPatients = patients
     .filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.id.includes(searchTerm);
-      const matchesFilter = showAlertsOnly ? p.priority < 3 : true;
+      
+      // Status filter
+      let matchesFilter = true;
+      if (statusFilter === "stable") {
+        matchesFilter = p.status === "Stable";
+      } else if (statusFilter === "warning") {
+        matchesFilter = p.status === "Warning";
+      } else if (statusFilter === "critical") {
+        matchesFilter = p.status === "Alert" || p.status === "Critical";
+      }
+      // "all" shows everything
+      
       return matchesSearch && matchesFilter;
     })
     .sort((a, b) => {
-      // First sort by priority (for alerts), then by patient_id for stable sorting
-      if (a.priority !== b.priority) {
-        return a.priority - b.priority;
+      if (sortBy === "name") {
+        // Sort by name (alphabetically)
+        return a.name.localeCompare(b.name);
+      } else {
+        // Sort by ID (default)
+        return Number(a.patient_id) - Number(b.patient_id);
       }
-      // Stable sort by patient_id
-      return Number(a.patient_id) - Number(b.patient_id);
     });
 
   const openEditModal = (threshold) => {
@@ -1088,8 +1101,8 @@ export default function StaffPage() {
                   <p className="text-sm font-medium" style={{ color: palette.textSecondary }}>Monitoring {filteredPatients.length} active devices</p>
                 </div>
 
-                <div className="flex gap-3">
-                  <div className="relative">
+                <div className="flex gap-3 flex-wrap">
+                  <div className="relative flex-1 min-w-[200px]">
                     <input
                       type="text"
                       placeholder="Search ID or Name..."
@@ -1112,26 +1125,50 @@ export default function StaffPage() {
                     />
                     <svg className="absolute left-3 top-3 h-5 w-5" style={{ color: palette.textSecondary }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                   </div>
-                  <button
-                    onClick={() => setShowAlertsOnly(!showAlertsOnly)}
-                    className="flex items-center gap-2 rounded-lg border px-5 py-2.5 text-sm font-semibold transition-all duration-150"
-                    style={{
-                      borderColor: showAlertsOnly ? palette.warning : palette.brand + '40',
-                      backgroundColor: showAlertsOnly ? palette.warning : palette.surface,
-                      color: showAlertsOnly ? 'white' : palette.brand,
-                      boxShadow: showAlertsOnly ? `0 2px 8px ${palette.warning}25` : `0 2px 8px ${palette.brand}15`
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!showAlertsOnly) {
-                        e.currentTarget.style.opacity = '0.8';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = '1';
-                    }}
-                  >
-                    {showAlertsOnly ? '⚠️ Alerts Only' : 'Filter: All'}
-                  </button>
+                  
+                  {/* Filter Dropdown */}
+                  <div className="relative">
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="rounded-lg border px-4 py-2.5 pr-8 text-sm font-semibold transition-all duration-150 appearance-none cursor-pointer"
+                      style={{
+                        borderColor: palette.brand + '40',
+                        backgroundColor: palette.surface,
+                        color: palette.brand,
+                        boxShadow: `0 2px 8px ${palette.brand}15`
+                      }}
+                    >
+                      <option value="all">Filter by...</option>
+                      <option value="stable">Stable</option>
+                      <option value="warning">Warning</option>
+                      <option value="critical">Critical</option>
+                    </select>
+                    <svg className="absolute right-2 top-3 h-5 w-5 pointer-events-none" style={{ color: palette.textSecondary }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+
+                  {/* Sort Dropdown */}
+                  <div className="relative">
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="rounded-lg border px-4 py-2.5 pr-8 text-sm font-semibold transition-all duration-150 appearance-none cursor-pointer"
+                      style={{
+                        borderColor: palette.brand + '40',
+                        backgroundColor: palette.surface,
+                        color: palette.brand,
+                        boxShadow: `0 2px 8px ${palette.brand}15`
+                      }}
+                    >
+                      <option value="id">Sort by ID</option>
+                      <option value="name">Sort by Name</option>
+                    </select>
+                    <svg className="absolute right-2 top-3 h-5 w-5 pointer-events-none" style={{ color: palette.textSecondary }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
                 </div>
               </div>
 

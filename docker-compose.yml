@@ -11,6 +11,7 @@ services:
       MYSQL_DATABASE: mymedql
       MYSQL_USER: medql_user
       MYSQL_PASSWORD: medql_pass
+      TZ: Asia/Ho_Chi_Minh
     volumes:
       # Persist database data
       - mysql_data:/var/lib/mysql

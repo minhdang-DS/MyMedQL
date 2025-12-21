@@ -16,6 +16,9 @@ USE `mymedql`;
 -- Basic Settings
 -- ============================================================================
 SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ERROR_FOR_DIVISION_BY_ZERO';
+-- Set timezone to Vietnam (GMT+7)
+SET GLOBAL time_zone = '+07:00';
+SET SESSION time_zone = '+07:00';
 -- Note: In production, tune SQL_MODE and other settings appropriately.
 
 -- ============================================================================

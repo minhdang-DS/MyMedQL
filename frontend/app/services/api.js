@@ -343,6 +343,68 @@ export async function getAllUnacknowledgedAlerts() {
 }
 
 /**
+ * Fetch patient summary from vw_patient_summary view
+ * @param {number} patientId
+ * @returns {Promise<Object>} Patient summary data
+ */
+export async function getPatientSummary(patientId) {
+    try {
+        const token = getToken();
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/patients/${patientId}/summary`, {
+            headers: headers
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch patient summary');
+        }
+        return await response.json();
+    } catch (error) {
+        console.error(`Error fetching summary for patient ${patientId}:`, error);
+        throw error;
+    }
+}
+
+/**
+ * Fetch daily aggregated vital statistics for a patient
+ * @param {number} patientId
+ * @param {string} date - Date in YYYY-MM-DD format (optional, defaults to today)
+ * @returns {Promise<Object>} Daily aggregated statistics
+ */
+export async function getPatientDailyStats(patientId, date = null) {
+    try {
+        const token = getToken();
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        let url = `${API_BASE_URL}/patients/${patientId}/daily-stats`;
+        if (date) {
+            url += `?stats_date=${date}`;
+        }
+
+        const response = await fetch(url, {
+            headers: headers
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch patient daily stats');
+        }
+        return await response.json();
+    } catch (error) {
+        console.error(`Error fetching daily stats for patient ${patientId}:`, error);
+        throw error;
+    }
+}
+
+/**
  * Acknowledge an alert.
  * @param {number} alertId
  * @returns {Promise<Object>} Updated alert record

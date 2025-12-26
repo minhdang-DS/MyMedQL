@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import ProtectedRoute from "../../../components/ProtectedRoute";
-import { getPatients, getPatientHistory, getThresholds, updateThreshold, deletePatient, getAllUnacknowledgedAlerts, acknowledgeAlert } from "../../services/api";
+import { getPatients, getPatientHistory, getThresholds, updateThreshold, deletePatient, getAllUnacknowledgedAlerts, acknowledgeAlert, getPatientSummary, getPatientDailyStats } from "../../services/api";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { getCurrentUser } from "../../services/auth";
 
@@ -77,6 +77,10 @@ export default function StaffPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false); // Modal state for delete confirmation
   const [patientToDelete, setPatientToDelete] = useState(null); // Patient to be deleted
   const [currentStaff, setCurrentStaff] = useState({ name: "", id: "", role: "" }); // Current logged-in staff info
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false); // Track if summary modal is open
+  const [summaryModalPatient, setSummaryModalPatient] = useState(null); // Patient for summary modal
+  const [patientSummaries, setPatientSummaries] = useState({}); // Cache patient summary data
+  const [loadingSummary, setLoadingSummary] = useState(false); // Track loading state for summary
 
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState("");
@@ -501,6 +505,52 @@ export default function StaffPage() {
       console.error("Error deleting patient:", error);
       alert("Failed to delete patient. Please try again.");
     }
+  };
+
+  // Open patient summary modal
+  const handleOpenSummary = async (e, patient) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setSummaryModalPatient(patient);
+    setSummaryModalOpen(true);
+    
+    // Fetch summary if not already cached
+    if (!patientSummaries[patient.patient_id]) {
+      setLoadingSummary(true);
+      try {
+        const [summary, dailyStats] = await Promise.all([
+          getPatientSummary(patient.patient_id),
+          getPatientDailyStats(patient.patient_id)
+        ]);
+        setPatientSummaries(prev => ({
+          ...prev,
+          [patient.patient_id]: { ...summary, dailyStats }
+        }));
+      } catch (error) {
+        console.error(`Error fetching summary for patient ${patient.patient_id}:`, error);
+      } finally {
+        setLoadingSummary(false);
+      }
+    }
+  };
+
+  // Close summary modal
+  const handleCloseSummary = () => {
+    setSummaryModalOpen(false);
+    setSummaryModalPatient(null);
+  };
+
+  // Format timestamp for display
+  const formatTimestamp = (ts) => {
+    if (!ts) return 'N/A';
+    const date = new Date(ts);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   // Computed Stats - using useMemo to ensure reactivity
@@ -1313,13 +1363,30 @@ export default function StaffPage() {
                         </div>
 
                         <div className="flex justify-between items-center pt-4 border-t" style={{ borderColor: palette.brand + '40' }}>
-                          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg" style={{ 
-                            backgroundColor: palette.muted,
-                            color: palette.textSecondary
-                          }}>
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                            Patient {p.id}
-                          </div>
+                          <button
+                            onClick={(e) => handleOpenSummary(e, p)}
+                            className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all duration-150"
+                            style={{ 
+                              backgroundColor: palette.muted,
+                              color: palette.textSecondary,
+                              border: '1px solid transparent'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = palette.brand + '30';
+                              e.currentTarget.style.color = palette.brand;
+                              e.currentTarget.style.border = `1px solid ${palette.brand}60`;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = palette.muted;
+                              e.currentTarget.style.color = palette.textSecondary;
+                              e.currentTarget.style.border = '1px solid transparent';
+                            }}
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            Summary
+                          </button>
                           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg" style={{ 
                             backgroundColor: palette.success + '20',
                             color: palette.success
@@ -1611,6 +1678,243 @@ export default function StaffPage() {
                   }}
                 >
                   Delete Patient
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Patient Summary Modal */}
+        {summaryModalOpen && summaryModalPatient && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={handleCloseSummary}>
+            <div className="w-full max-w-lg max-h-[90vh] rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 animate-in zoom-in-95 duration-200 flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: palette.brand + '40', backgroundColor: 'rgba(224, 247, 250, 0.5)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl p-2" style={{ backgroundColor: palette.brand + '20', color: palette.brand }}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold" style={{ color: palette.navyDark }}>{summaryModalPatient.name}</h2>
+                    <div className="flex items-center gap-2 text-xs" style={{ color: palette.textSecondary }}>
+                      <span>ID: {summaryModalPatient.id}</span>
+                      <span>•</span>
+                      <span style={{ color: palette.brand }}>{summaryModalPatient.room}</span>
+                    </div>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleCloseSummary}
+                  className="rounded-lg p-2 transition-all duration-150 hover:opacity-80"
+                  style={{ color: palette.textSecondary, backgroundColor: palette.muted }}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="flex-1 overflow-y-auto px-6 py-5" style={{ scrollbarWidth: 'thin', scrollbarColor: `${palette.brand}40 transparent` }}>
+                {loadingSummary ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 mb-3" style={{ borderColor: palette.brand }}></div>
+                    <span className="text-sm" style={{ color: palette.textSecondary }}>Loading patient summary...</span>
+                  </div>
+                ) : patientSummaries[summaryModalPatient.patient_id] ? (
+                  <div className="space-y-5">
+                    {/* Current Status Badge */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold" style={{ color: palette.textSecondary }}>Current Status</span>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                        summaryModalPatient.status === 'Alert' ? 'text-white' : 
+                        summaryModalPatient.status === 'Warning' ? 'text-white' : 'text-white'
+                      }`} style={{
+                        backgroundColor: summaryModalPatient.status === 'Alert' ? palette.danger : 
+                                        summaryModalPatient.status === 'Warning' ? palette.warning : palette.success
+                      }}>
+                        {summaryModalPatient.status}
+                      </span>
+                    </div>
+
+                    {/* Quick Stats Grid */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl p-4 border" style={{ backgroundColor: palette.muted, borderColor: palette.brand + '30' }}>
+                        <div className="text-xs uppercase tracking-wider font-bold mb-1" style={{ color: palette.textSecondary }}>Total Readings</div>
+                        <div className="text-3xl font-bold" style={{ color: palette.navyDark }}>{patientSummaries[summaryModalPatient.patient_id].total_vital_readings || 0}</div>
+                      </div>
+                      <div className="rounded-xl p-4 border" style={{ backgroundColor: palette.muted, borderColor: palette.brand + '30' }}>
+                        <div className="text-xs uppercase tracking-wider font-bold mb-1" style={{ color: palette.textSecondary }}>Last Reading</div>
+                        <div className="text-sm font-semibold" style={{ color: palette.navyDark }}>{formatTimestamp(patientSummaries[summaryModalPatient.patient_id].last_vital_ts)}</div>
+                      </div>
+                    </div>
+
+                    {/* Alerts Summary */}
+                    <div>
+                      <h3 className="text-sm font-bold uppercase tracking-wider mb-3" style={{ color: palette.navy }}>Alerts Summary</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl p-4 border" style={{ 
+                          backgroundColor: patientSummaries[summaryModalPatient.patient_id].alerts_last_24h > 0 ? palette.warning + '15' : palette.muted, 
+                          borderColor: patientSummaries[summaryModalPatient.patient_id].alerts_last_24h > 0 ? palette.warning + '50' : palette.brand + '30' 
+                        }}>
+                          <div className="text-xs uppercase tracking-wider font-bold mb-1" style={{ color: palette.textSecondary }}>Alerts (Last 24h)</div>
+                          <div className="text-3xl font-bold" style={{ color: patientSummaries[summaryModalPatient.patient_id].alerts_last_24h > 0 ? palette.warning : palette.navyDark }}>
+                            {patientSummaries[summaryModalPatient.patient_id].alerts_last_24h || 0}
+                          </div>
+                        </div>
+                        <div className="rounded-xl p-4 border" style={{ 
+                          backgroundColor: patientSummaries[summaryModalPatient.patient_id].unresolved_alerts > 0 ? palette.danger + '15' : palette.muted, 
+                          borderColor: patientSummaries[summaryModalPatient.patient_id].unresolved_alerts > 0 ? palette.danger + '50' : palette.brand + '30' 
+                        }}>
+                          <div className="text-xs uppercase tracking-wider font-bold mb-1" style={{ color: palette.textSecondary }}>Unresolved Alerts</div>
+                          <div className="text-3xl font-bold" style={{ color: patientSummaries[summaryModalPatient.patient_id].unresolved_alerts > 0 ? palette.danger : palette.navyDark }}>
+                            {patientSummaries[summaryModalPatient.patient_id].unresolved_alerts || 0}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Latest Vitals */}
+                    <div>
+                      <h3 className="text-sm font-bold uppercase tracking-wider mb-3" style={{ color: palette.navy }}>Latest Vital Signs</h3>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-xl p-3 border text-center" style={{ backgroundColor: palette.muted, borderColor: palette.brand + '30' }}>
+                          <div className="text-lg mb-1">❤️</div>
+                          <div className="text-xs font-semibold mb-1" style={{ color: palette.textSecondary }}>Heart Rate</div>
+                          <div className="text-xl font-bold" style={{ color: palette.navyDark }}>
+                            {patientSummaries[summaryModalPatient.patient_id].latest_heart_rate ?? 'N/A'}
+                            {patientSummaries[summaryModalPatient.patient_id].latest_heart_rate && <span className="text-xs ml-1" style={{ color: palette.textSecondary }}>BPM</span>}
+                          </div>
+                        </div>
+                        <div className="rounded-xl p-3 border text-center" style={{ backgroundColor: palette.muted, borderColor: palette.brand + '30' }}>
+                          <div className="text-lg mb-1">🫁</div>
+                          <div className="text-xs font-semibold mb-1" style={{ color: palette.textSecondary }}>SpO2</div>
+                          <div className="text-xl font-bold" style={{ color: palette.navyDark }}>
+                            {patientSummaries[summaryModalPatient.patient_id].latest_spo2 ?? 'N/A'}
+                            {patientSummaries[summaryModalPatient.patient_id].latest_spo2 && <span className="text-xs ml-1" style={{ color: palette.textSecondary }}>%</span>}
+                          </div>
+                        </div>
+                        <div className="rounded-xl p-3 border text-center" style={{ backgroundColor: palette.muted, borderColor: palette.brand + '30' }}>
+                          <div className="text-lg mb-1">🌡️</div>
+                          <div className="text-xs font-semibold mb-1" style={{ color: palette.textSecondary }}>Temp</div>
+                          <div className="text-xl font-bold" style={{ color: palette.navyDark }}>
+                            {patientSummaries[summaryModalPatient.patient_id].latest_temperature_c ? `${Number(patientSummaries[summaryModalPatient.patient_id].latest_temperature_c).toFixed(1)}°` : 'N/A'}
+                          </div>
+                        </div>
+                        <div className="rounded-xl p-3 border text-center" style={{ backgroundColor: palette.muted, borderColor: palette.brand + '30' }}>
+                          <div className="text-lg mb-1">🩺</div>
+                          <div className="text-xs font-semibold mb-1" style={{ color: palette.textSecondary }}>Blood Pressure</div>
+                          <div className="text-xl font-bold" style={{ color: palette.navyDark }}>
+                            {patientSummaries[summaryModalPatient.patient_id].latest_bp_systolic && patientSummaries[summaryModalPatient.patient_id].latest_bp_diastolic 
+                              ? `${patientSummaries[summaryModalPatient.patient_id].latest_bp_systolic}/${patientSummaries[summaryModalPatient.patient_id].latest_bp_diastolic}` 
+                              : 'N/A'}
+                          </div>
+                        </div>
+                        <div className="rounded-xl p-3 border text-center col-span-2" style={{ backgroundColor: palette.muted, borderColor: palette.brand + '30' }}>
+                          <div className="text-lg mb-1">💨</div>
+                          <div className="text-xs font-semibold mb-1" style={{ color: palette.textSecondary }}>Respiration Rate</div>
+                          <div className="text-xl font-bold" style={{ color: palette.navyDark }}>
+                            {patientSummaries[summaryModalPatient.patient_id].latest_respiration ?? 'N/A'}
+                            {patientSummaries[summaryModalPatient.patient_id].latest_respiration && <span className="text-xs ml-1" style={{ color: palette.textSecondary }}>breaths/min</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Daily Stats */}
+                    {patientSummaries[summaryModalPatient.patient_id].dailyStats && patientSummaries[summaryModalPatient.patient_id].dailyStats.reading_count > 0 && (
+                      <div>
+                        <h3 className="text-sm font-bold uppercase tracking-wider mb-3" style={{ color: palette.navy }}>Today's Statistics</h3>
+                        <div className="rounded-xl p-4 border" style={{ backgroundColor: palette.light + '40', borderColor: palette.brand + '40' }}>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-semibold" style={{ color: palette.brand }}>
+                              {patientSummaries[summaryModalPatient.patient_id].dailyStats.reading_count} readings today
+                            </span>
+                            <span className="text-xs" style={{ color: palette.textSecondary }}>
+                              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                              <span style={{ color: palette.textSecondary }}>Heart Rate Range</span>
+                              <span className="font-bold" style={{ color: palette.navyDark }}>
+                                {patientSummaries[summaryModalPatient.patient_id].dailyStats.min_heart_rate} - {patientSummaries[summaryModalPatient.patient_id].dailyStats.max_heart_rate} BPM
+                                <span className="ml-2 text-xs font-normal" style={{ color: palette.textSecondary }}>
+                                  (avg: {Math.round(patientSummaries[summaryModalPatient.patient_id].dailyStats.avg_heart_rate)})
+                                </span>
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span style={{ color: palette.textSecondary }}>SpO2 Range</span>
+                              <span className="font-bold" style={{ color: palette.navyDark }}>
+                                {patientSummaries[summaryModalPatient.patient_id].dailyStats.min_spo2} - {patientSummaries[summaryModalPatient.patient_id].dailyStats.max_spo2}%
+                                <span className="ml-2 text-xs font-normal" style={{ color: palette.textSecondary }}>
+                                  (avg: {Math.round(patientSummaries[summaryModalPatient.patient_id].dailyStats.avg_spo2)}%)
+                                </span>
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span style={{ color: palette.textSecondary }}>Temperature Range</span>
+                              <span className="font-bold" style={{ color: palette.navyDark }}>
+                                {Number(patientSummaries[summaryModalPatient.patient_id].dailyStats.min_temperature_c).toFixed(1)} - {Number(patientSummaries[summaryModalPatient.patient_id].dailyStats.max_temperature_c).toFixed(1)}°C
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span style={{ color: palette.textSecondary }}>Blood Pressure Range</span>
+                              <span className="font-bold" style={{ color: palette.navyDark }}>
+                                {patientSummaries[summaryModalPatient.patient_id].dailyStats.min_bp_systolic}-{patientSummaries[summaryModalPatient.patient_id].dailyStats.max_bp_systolic}/{patientSummaries[summaryModalPatient.patient_id].dailyStats.min_bp_diastolic}-{patientSummaries[summaryModalPatient.patient_id].dailyStats.max_bp_diastolic}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Admission Status */}
+                    {patientSummaries[summaryModalPatient.patient_id].admission_status && (
+                      <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: palette.brand + '30' }}>
+                        <span className="text-sm font-semibold" style={{ color: palette.textSecondary }}>Admission Status</span>
+                        <span className="px-3 py-1 rounded-lg text-xs font-bold uppercase" style={{ 
+                          backgroundColor: patientSummaries[summaryModalPatient.patient_id].admission_status === 'admitted' ? palette.success + '20' : palette.muted,
+                          color: patientSummaries[summaryModalPatient.patient_id].admission_status === 'admitted' ? palette.success : palette.textSecondary
+                        }}>
+                          {patientSummaries[summaryModalPatient.patient_id].admission_status}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <svg className="w-12 h-12 mb-3" style={{ color: palette.border }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="text-sm" style={{ color: palette.textSecondary }}>No summary data available</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end gap-3 px-6 py-4 border-t" style={{ borderColor: palette.brand + '40', backgroundColor: palette.muted }}>
+                <Link 
+                  href={`/roles/staff/patient/${summaryModalPatient.id}`}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-150"
+                  style={{ backgroundColor: palette.brand, color: 'white' }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                >
+                  View Full Details
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </Link>
+                <button
+                  onClick={handleCloseSummary}
+                  className="px-4 py-2 text-sm font-semibold rounded-lg border transition-all duration-150 hover:opacity-80"
+                  style={{ borderColor: palette.brand + '40', color: palette.navy, backgroundColor: palette.surface }}
+                >
+                  Close
                 </button>
               </div>
             </div>

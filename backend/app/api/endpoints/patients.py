@@ -371,6 +371,152 @@ async def delete_patient(
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
+@router.get("/{patient_id}/summary")
+async def get_patient_summary(
+    patient_id: int,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Get patient summary from vw_patient_summary view.
+    Provides consolidated patient info including:
+    - Demographics (name, gender, room)
+    - Latest vital readings
+    - Vital statistics (total readings, last reading timestamp)
+    - Alert summary (last 24h count, unresolved count)
+    - Admission status
+    
+    Args:
+        patient_id: Patient ID
+        
+    Returns:
+        Patient summary data
+    """
+    try:
+        # Access Control:
+        # - Staff can access any patient
+        # - Patients can only access their own data
+        if current_user["role"] == "patient" and current_user["id"] != patient_id:
+            raise HTTPException(
+                status_code=403, 
+                detail="You do not have permission to access this patient's summary"
+            )
+
+        engine = get_engine()
+        with engine.connect() as conn:
+            # Get patient summary from view
+            result = conn.execute(
+                text("""
+                    SELECT 
+                        patient_id,
+                        full_name,
+                        gender,
+                        room_id,
+                        total_vital_readings,
+                        last_vital_ts,
+                        latest_heart_rate,
+                        latest_spo2,
+                        latest_bp_systolic,
+                        latest_bp_diastolic,
+                        latest_temperature_c,
+                        latest_respiration,
+                        alerts_last_24h,
+                        unresolved_alerts,
+                        admission_status,
+                        admitted_at
+                    FROM vw_patient_summary
+                    WHERE patient_id = :pid
+                """),
+                {"pid": patient_id}
+            )
+            summary = result.fetchone()
+            
+            if not summary:
+                raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
+            
+            return dict(summary._mapping)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@router.get("/{patient_id}/daily-stats")
+async def get_patient_daily_stats(
+    patient_id: int,
+    stats_date: Optional[date] = None,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Get daily aggregated vital statistics for a patient using the aggregate_daily_stats stored procedure.
+    
+    Args:
+        patient_id: Patient ID
+        stats_date: Date to get stats for (defaults to today)
+        
+    Returns:
+        Daily aggregated statistics (min, max, avg for all vitals)
+    """
+    try:
+        # Access Control
+        if current_user["role"] == "patient" and current_user["id"] != patient_id:
+            raise HTTPException(
+                status_code=403, 
+                detail="You do not have permission to access this patient's daily stats"
+            )
+
+        # Default to today if no date provided
+        if stats_date is None:
+            from datetime import date as date_type
+            stats_date = date_type.today()
+
+        engine = get_engine()
+        with engine.connect() as conn:
+            # First verify patient exists
+            patient_check = conn.execute(
+                text("SELECT patient_id FROM patients WHERE patient_id = :pid"),
+                {"pid": patient_id}
+            )
+            if not patient_check.fetchone():
+                raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
+            
+            # Call the stored procedure
+            result = conn.execute(
+                text("CALL aggregate_daily_stats(:pid, :stats_date)"),
+                {"pid": patient_id, "stats_date": stats_date}
+            )
+            
+            stats = result.fetchone()
+            if stats:
+                return dict(stats._mapping)
+            else:
+                return {
+                    "day": stats_date,
+                    "reading_count": 0,
+                    "avg_heart_rate": None,
+                    "min_heart_rate": None,
+                    "max_heart_rate": None,
+                    "avg_spo2": None,
+                    "min_spo2": None,
+                    "max_spo2": None,
+                    "avg_temperature_c": None,
+                    "min_temperature_c": None,
+                    "max_temperature_c": None,
+                    "avg_bp_systolic": None,
+                    "min_bp_systolic": None,
+                    "max_bp_systolic": None,
+                    "avg_bp_diastolic": None,
+                    "min_bp_diastolic": None,
+                    "max_bp_diastolic": None,
+                    "avg_respiration": None,
+                    "min_respiration": None,
+                    "max_respiration": None
+                }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
 @router.post("/{patient_id}/emergency", status_code=201)
 async def create_emergency_alert(
     patient_id: int,

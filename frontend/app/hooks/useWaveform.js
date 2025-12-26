@@ -22,6 +22,10 @@ export function useWaveform(rate, type = 'ecg') {
     // Animation frame reference
     const frameIdRef = useRef(null);
     const lastTimeRef = useRef(Date.now());
+    
+    // Track if buffer has been pre-filled and last rate value
+    const hasPrefilledRef = useRef(false);
+    const lastRateRef = useRef(null);
 
     // ViewBox dimensions: 0 0 1000 100
     const VIEWBOX_WIDTH = 1000;
@@ -125,6 +129,76 @@ export function useWaveform(rate, type = 'ecg') {
     }, []);
 
     /**
+     * Pre-fill buffer with waveform history when first valid rate is received
+     * This ensures the graph doesn't start "in the middle" but shows a full history
+     */
+    const prefillBuffer = useCallback((currentRate) => {
+        if (!currentRate || currentRate === 0) return;
+
+        const rateHz = currentRate / 60;
+        const omega = 2 * Math.PI * rateHz;
+        
+        // Calculate time step: we want BUFFER_SIZE points
+        // At 60 FPS, each frame is ~16.67ms, so we generate points going backwards
+        const timeStep = 1.0 / 60; // ~16.67ms per point
+        const newBuffer = [];
+        
+        // Start from current phase (0) and go backwards to fill the buffer
+        // This creates a "history" that leads up to the current moment
+        let phase = 0;
+        
+        for (let i = BUFFER_SIZE - 1; i >= 0; i--) {
+            let phaseForCalculation = phase;
+            
+            // For ECG, normalize phase for piecewise function
+            if (type === 'ecg') {
+                phaseForCalculation = ((phase % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+            }
+            
+            const y = calculateY(phaseForCalculation);
+            newBuffer[i] = y;
+            
+            // Move backwards in phase
+            phase -= omega * timeStep;
+        }
+        
+        // Update buffer and set phase to 0 (current moment)
+        bufferRef.current = newBuffer;
+        phaseRef.current = 0;
+        hasPrefilledRef.current = true;
+        
+        // Generate path immediately
+        setPath(generatePath());
+    }, [type, calculateY, generatePath]);
+
+    /**
+     * Pre-fill buffer when rate first becomes valid
+     * This ensures the graph shows a full history immediately instead of starting empty
+     */
+    useEffect(() => {
+        const currentRate = (rate !== null && rate !== undefined && rate !== 0) ? rate : null;
+        const lastRate = lastRateRef.current;
+        
+        // Check if rate just became valid (was null/0, now has value)
+        // Only pre-fill once when rate first becomes valid
+        const rateJustBecameValid = (lastRate === null || lastRate === 0 || lastRate === undefined) && 
+                                     currentRate !== null && currentRate !== 0 &&
+                                     !hasPrefilledRef.current;
+        
+        if (rateJustBecameValid) {
+            prefillBuffer(currentRate);
+        }
+        
+        // Update last rate
+        lastRateRef.current = currentRate;
+        
+        // Reset pre-fill flag if rate goes back to invalid
+        if (currentRate === null || currentRate === 0) {
+            hasPrefilledRef.current = false;
+        }
+    }, [rate, prefillBuffer]);
+
+    /**
      * Animation loop - 60 FPS
      */
     useEffect(() => {
@@ -137,6 +211,7 @@ export function useWaveform(rate, type = 'ecg') {
             if (rate === null || rate === undefined || rate === 0) {
                 // Keep buffer at baseline
                 bufferRef.current.fill(BASELINE);
+                hasPrefilledRef.current = false; // Reset pre-fill flag
                 setPath(generatePath());
                 frameIdRef.current = requestAnimationFrame(loop);
                 return;

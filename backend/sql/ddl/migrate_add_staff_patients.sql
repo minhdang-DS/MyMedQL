@@ -41,3 +41,4 @@ CREATE TABLE IF NOT EXISTS staff_patients (
     INDEX idx_staff_patients_assigned_at (assigned_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
